@@ -59,7 +59,10 @@
     <section class="card results-section" id="resultsSection" style="display:none;">
       <div class="card-title"><span>Résultats du suivi</span></div>
       <div class="canvas-container">
-        <canvas id="resultCanvas"></canvas>
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="resultCanvas"></canvas>
+          <div class="scan-overlay" id="scanOverlay" aria-hidden="true"><div class="scan-line"></div></div>
+        </div>
       </div>
       <div class="landmarks-info" id="landmarksInfo"><p>Déplacez l'image pour voir les repères</p></div>
       <button class="btn-reset reset-btn" id="resetBtn">Nouvelle détection</button>
@@ -158,11 +161,39 @@
     }
     
     // Fonction pour traiter une image avec MediaPipe
+    function setScan(active) {
+      const el = document.getElementById('scanOverlay');
+      if (el) el.classList.toggle('active', !!active);
+    }
+
+    function drawImageFaded(ctx, img, w, h, alpha) {
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = '#0d141b';
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(img, 0, 0, w, h);
+      ctx.globalAlpha = 1;
+    }
+
+    function fadeOutImage(canvas, ctx, img, landmarks) {
+      const w = canvas.width, h = canvas.height;
+      const start = performance.now();
+      const duration = 700;
+      function frame(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const alpha = 1 - t;
+        drawImageFaded(ctx, img, w, h, alpha);
+        if (landmarks) drawFaceLandmarks(ctx, landmarks, w, h);
+        if (t < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
     async function processImageWithMediaPipe(imgElement) {
       const canvas = resultCanvas || document.getElementById('resultCanvas');
       const landmarksInfo = landmarksInfoEl || document.getElementById('landmarksInfo');
       if (!holistic) {
-        alert('Module MediaPipe non initialis?');
+        if (landmarksInfo) landmarksInfo.innerHTML = '<p>Module MediaPipe non initialis?. Rechargez la page.</p>';
         return;
       }
       if (!canvas) return;
@@ -171,32 +202,41 @@
       canvas.style.display = 'block';
       if (landmarksInfo) landmarksInfo.innerHTML = '<p>Analyse en cours...</p>';
 
+      // Dimensionner le canvas au ratio de l'image et l'afficher imm?diatement
+      const maxDim = 960;
+      const srcW = imgElement.naturalWidth || imgElement.width || 720;
+      const srcH = imgElement.naturalHeight || imgElement.height || 540;
+      const scale = Math.min(1, maxDim / Math.max(srcW, srcH));
+      canvas.width = Math.round(srcW * scale);
+      canvas.height = Math.round(srcH * scale);
+      const drawCtx = canvas.getContext('2d');
+      if (!drawCtx) return;
+      drawCtx.clearRect(0, 0, canvas.width, canvas.height);
+      drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
+
+      setScan(true);
+
       try {
         const results = await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => { pendingResultsResolve = null; reject(new Error('Timeout MediaPipe')); }, 15000);
+          const timeout = setTimeout(() => { pendingResultsResolve = null; reject(new Error('Timeout MediaPipe')); }, 30000);
           pendingResultsResolve = (r) => { clearTimeout(timeout); resolve(r); };
           holistic.send({ image: imgElement }).catch((e) => { clearTimeout(timeout); pendingResultsResolve = null; reject(e); });
         });
 
-        const drawCtx = canvas.getContext('2d');
-        if (!drawCtx) return;
-
-        // Adapter le canvas au ratio de l'image (?vite la d?formation)
-        const maxDim = 960;
-        const srcW = imgElement.naturalWidth || imgElement.width || 720;
-        const srcH = imgElement.naturalHeight || imgElement.height || 540;
-        const scale = Math.min(1, maxDim / Math.max(srcW, srcH));
-        canvas.width = Math.round(srcW * scale);
-        canvas.height = Math.round(srcH * scale);
-
-        drawCtx.clearRect(0, 0, canvas.width, canvas.height);
-        drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
+        setScan(false);
 
         if (results.faceLandmarks) {
+          // dessiner landmarks sur l'image puis estomper l'image
+          drawCtx.clearRect(0, 0, canvas.width, canvas.height);
+          drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
           drawFaceLandmarks(drawCtx, results.faceLandmarks, canvas.width, canvas.height);
           if (landmarksInfo) landmarksInfo.innerHTML = '<p>Visage d?tect? - ' + results.faceLandmarks.length + ' points rep?re</p>';
+          fadeOutImage(canvas, drawCtx, imgElement, results.faceLandmarks);
         } else {
+          drawCtx.clearRect(0, 0, canvas.width, canvas.height);
+          drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
           if (landmarksInfo) landmarksInfo.innerHTML = '<p>Aucun visage d?tect?</p>';
+          fadeOutImage(canvas, drawCtx, imgElement, null);
         }
 
         if (results.leftHandLandmarks && landmarksInfo) {
@@ -204,11 +244,13 @@
         }
 
       } catch (err) {
+        setScan(false);
         console.error('Erreur MediaPipe:', err);
         if (landmarksInfo) landmarksInfo.innerHTML = '<p>Erreur analyse: ' + err.message + '</p>';
       }
     }
 
+    function drawFaceLandmarks
     function drawFaceLandmarks(ctx, landmarks, imgWidth, imgHeight) {
       if (!landmarks || landmarks.length === 0) return;
       
