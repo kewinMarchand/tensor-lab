@@ -75,6 +75,8 @@
     let video = null;
     let canvasCtx = null;
     let pendingResultsResolve = null;
+    let resultCanvas = null;
+    let landmarksInfoEl = null;
     
     // Vérifier la disponibilité
     const checkMpAvailability = setInterval(() => {
@@ -120,9 +122,9 @@
       
       // Gestion du fichier
       const fileInput = document.getElementById('fileInput');
-      const canvas = document.getElementById('resultCanvas');
-      const ctx = canvas.getContext ? canvas.getContext('2d') : null;
-      const landmarksInfo = document.getElementById('landmarksInfo');
+      resultCanvas = document.getElementById('resultCanvas');
+      const ctx = resultCanvas.getContext ? resultCanvas.getContext('2d') : null;
+      landmarksInfoEl = document.getElementById('landmarksInfo');
       const resetBtn = document.getElementById('resetBtn');
       
       if (ctx) {
@@ -149,64 +151,65 @@
       
       resetBtn.addEventListener('click', () => {
         document.getElementById('resultsSection').style.display = 'none';
-        canvas.style.display = 'none';
-        landmarksInfo.innerHTML = '<p>Chargez une image ou activez la webcam</p>';
+        if (resultCanvas) resultCanvas.style.display = 'none';
+        if (landmarksInfoEl) landmarksInfoEl.innerHTML = '<p>Chargez une image ou activez la webcam</p>';
         fileInput.value = '';
       });
     }
     
     // Fonction pour traiter une image avec MediaPipe
     async function processImageWithMediaPipe(imgElement) {
+      const canvas = resultCanvas || document.getElementById('resultCanvas');
+      const landmarksInfo = landmarksInfoEl || document.getElementById('landmarksInfo');
       if (!holistic) {
-        alert('Module MediaPipe non initialisé');
+        alert('Module MediaPipe non initialis?');
         return;
       }
-      
+      if (!canvas) return;
+
       document.getElementById('resultsSection').style.display = 'block';
       canvas.style.display = 'block';
-      landmarksInfo.innerHTML = '<p>Analyse en cours...</p>';
-      
+      if (landmarksInfo) landmarksInfo.innerHTML = '<p>Analyse en cours...</p>';
+
       try {
-        // MediaPipe attend un objet vidéo ou image
         const results = await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => { pendingResultsResolve = null; reject(new Error('Timeout MediaPipe')); }, 15000);
           pendingResultsResolve = (r) => { clearTimeout(timeout); resolve(r); };
           holistic.send({ image: imgElement }).catch((e) => { clearTimeout(timeout); pendingResultsResolve = null; reject(e); });
         });
-        
-        // Canvas de dessin
+
         const drawCtx = canvas.getContext('2d');
         if (!drawCtx) return;
-        
-        // Réinitialiser le canvas
+
+        // Adapter le canvas au ratio de l'image (?vite la d?formation)
+        const maxDim = 960;
+        const srcW = imgElement.naturalWidth || imgElement.width || 720;
+        const srcH = imgElement.naturalHeight || imgElement.height || 540;
+        const scale = Math.min(1, maxDim / Math.max(srcW, srcH));
+        canvas.width = Math.round(srcW * scale);
+        canvas.height = Math.round(srcH * scale);
+
         drawCtx.clearRect(0, 0, canvas.width, canvas.height);
         drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
-        
-        // Dessiner les repères faciaux
+
         if (results.faceLandmarks) {
-          const faceLandmarks = results.faceLandmarks;
-          const drawOptions = { color: 'red', lineWidth: 2 };
-          
-          // Dessiner le contour du visage
-          if (results.faceLandmarks) {
-            // MediaPipe fournit les landmarks du visage
-            drawFaceLandmarks(drawCtx, faceLandmarks, canvas.width, canvas.height);
-          }
-          
-          // Informations texte
-          landmarksInfo.innerHTML = '<p>Visage détecté - ' + (results.faceLandmarks ? faceLandmarks.length : 0) + ' points repère</p>';
+          drawFaceLandmarks(drawCtx, results.faceLandmarks, canvas.width, canvas.height);
+          if (landmarksInfo) landmarksInfo.innerHTML = '<p>Visage d?tect? - ' + results.faceLandmarks.length + ' points rep?re</p>';
+        } else {
+          if (landmarksInfo) landmarksInfo.innerHTML = '<p>Aucun visage d?tect?</p>';
         }
-        
-        if (results.leftHandLandmarks) {
-          landmarksInfo.innerHTML += '<p>Mains détectées</p>';
+
+        if (results.leftHandLandmarks && landmarksInfo) {
+          landmarksInfo.innerHTML += '<p>Mains d?tect?es</p>';
         }
-        
+
       } catch (err) {
         console.error('Erreur MediaPipe:', err);
-        landmarksInfo.innerHTML = '<p>Erreur analyse: ' + err.message + '</p>';
+        if (landmarksInfo) landmarksInfo.innerHTML = '<p>Erreur analyse: ' + err.message + '</p>';
       }
     }
-    
+
+    function drawFaceLandmarks
     function drawFaceLandmarks(ctx, landmarks, imgWidth, imgHeight) {
       if (!landmarks || landmarks.length === 0) return;
       
@@ -244,8 +247,8 @@
       } else {
         // Sinon dessiner les points individuels
         landmarks.forEach((landmark, idx) => {
-          const x = landmark.x * canvas.width;
-          const y = landmark.y * canvas.height;
+          const x = landmark.x * imgWidth;
+          const y = landmark.y * imgHeight;
           
           ctx.beginPath();
           ctx.arc(x, y, 2, 0, Math.PI * 2);
