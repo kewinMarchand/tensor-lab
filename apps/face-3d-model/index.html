@@ -1,120 +1,100 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Modélisation Faciale 3D - MediaPipe + Three.js</title>
-  <link rel="stylesheet" href="styles.css">
-  <!--
-    Basé sur l'article TensorFlow Blog 2020 :
-    "Face and hand tracking in browser with mediapipe and tensorflowjs"
-    Adapté pour génération de modèle 3D exportable.
-  -->
-  <!-- MediaPipe (via CDN - fonctionnera sur le laptop de l'utilisateur) -->
+  <meta name="theme-color" content="#0b1117">
+  <meta name="description" content="Face 3D Model — modélisation faciale 3D en temps réel avec MediaPipe et Three.js.">
+  <title>Face 3D Model — Tensor Lab</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./theme/tokens.css">
+  <link rel="stylesheet" href="./theme/base.css">
+  <link rel="stylesheet" href="./theme/components.css">
+  <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic"></script>
-  <!-- Three.js pour le 3D -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-  <!-- TensorFlow.js optionnel pour traitement additionnel -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
 </head>
 <body>
-  <header>
-    <h1>Modélisation Faciale 3D en Temps Réel</h1>
-    <div class="version-info">
-      Version: 2.0.0 <span title="Basé sur l'article TensorFlow Blog mars 2020">TF MediaPipe</span>
-    </div>
-  </header>
+  <div class="container">
+    <header>
+      <div class="brand-group">
+        <div class="brand-icon" aria-hidden="true">◈</div>
+        <div class="header-title">
+          <h1>Face <span>3D Model</span></h1>
+          <p>Modélisation faciale 3D en temps réel — MediaPipe Holistic + Three.js</p>
+        </div>
+      </div>
+      <div class="header-status">
+        <a class="repo-link repo-link--icon" href="https://github.com/kewinMarchand/tensor-lab/tree/main/apps/face-3d-model" target="_blank" rel="noopener noreferrer" aria-label="Code source sur GitHub" title="Code source"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a>
+        <div id="statusBadge" class="status-badge status-idle">
+          <span class="live-dot"></span>
+          <span id="statusText">Initialisation…</span>
+        </div>
+      </div>
+    </header>
 
-  <main>
-    <div class="controls">
-      <button id="startCam">Activer la Webcam</button>
-      <button id="stopCam" style="display: none;">Désactiver</button>
-      <button id="captureBtn">Capturer le Visage</button>
-      <button id="resetBtn">Réinitialiser</button>
+    <div class="card">
+      <div class="card-title"><span>Contrôles</span></div>
+      <div class="controls">
+        <button id="startCam" class="btn-action">Activer la webcam</button>
+        <button id="stopCam" class="btn-reset" style="display:none;">Désactiver</button>
+        <button id="captureBtn" class="btn-action">Capturer le visage</button>
+        <button id="resetBtn" class="btn-reset">Réinitialiser</button>
+      </div>
+      <p class="hint">Webcam optionnelle : autorise la caméra ou capture un instantané. Les repères faciaux sont détectés par MediaPipe Holistic.</p>
     </div>
 
-    <div class="panels">
-      <!-- Panneau gauche: Vidéo + Canvas -->
-      <div class="panel panel-left">
-        <div class="panel-header">Flux Webcam</div>
-        <video id="webcamVideo" width="640" height=480 autoplay muted playsinline></video>
-        <canvas id="videoCanvas" width="640" height="480" style="display: none;"></canvas>
-        <div id="statusPanel" style="padding: 1rem; background: #e0e0e0; margin-top: 1rem; display: none;">
-          <p>Status: <span id="statusText">Initialisation...</span></p>
-          <p>Points faciaux: <span id="pointCount">0</span></p>
+    <div class="main-grid">
+      <div class="card panel panel-left">
+        <div class="card-title"><span>Flux vidéo</span><span id="pointCountWrap" class="muted">Points : <span id="pointCount">0</span></span></div>
+        <video id="webcamVideo" width="640" height="480" autoplay muted playsinline></video>
+        <canvas id="videoCanvas" width="640" height="480" style="display:none;"></canvas>
+        <div id="statusPanel" class="status-panel" style="display:none;">
+          <p>Statut : <span id="statusTextInline">Initialisation...</span></p>
         </div>
       </div>
 
-      <!-- Panneau droit: 3D Model -->
-      <div class="panel panel-right">
-        <div class="panel-header">Modèle 3D Facial</div>
+      <div class="card panel panel-right">
+        <div class="card-title"><span>Modèle 3D facial</span></div>
         <div id="viewerContainer">
-          <div id="loading3D" style="padding: 2rem; text-align: center; display: block;">
-            Chargement du visualiseur 3D...
-          </div>
-          <div id="threeContainer" style="display: none; height: 400px; width: 100%;"></div>
-          <div id="noModel" style="padding: 2rem; text-align: center; display: none; color: red;">
-            Aucun modèle 3D disponible
-          </div>
+          <div id="loading3D" class="empty-state">Chargement du visualiseur 3D…</div>
+          <div id="threeContainer" style="display:none; height:400px; width:100%;"></div>
+          <div id="noModel" class="empty-state" style="display:none; color:var(--pink);">Aucun modèle 3D disponible</div>
         </div>
-        <div id="exportPanel" style="margin-top: 1rem; display: none; padding: 1rem; background: #f0f0f0; border-radius: 8;">
-          <h4>Export du Modèle</h4>
-          <textarea id="modelJson" rows="4" cols="50" readonly style="width: 100%; padding: 0.5rem; font-family: monospace;"></textarea>
-          <div style="margin-top: 0.5rem;">
-            <button id="copyBtn">Copier vers Presse-papiers</button>
-            <button id="downloadBtn">Télécharger JSON</button>
+        <div id="exportPanel" class="export-panel" style="display:none;">
+          <h3>Export du modèle</h3>
+          <textarea id="modelJson" rows="5" readonly></textarea>
+          <div class="buttons-row">
+            <button id="copyBtn" class="btn-action">Copier</button>
+            <button id="downloadBtn" class="btn-reset">Télécharger JSON</button>
           </div>
         </div>
       </div>
     </div>
-  </main>
 
-  <section class="results-section" id="resultsSection" style="display: none;">
-    <h2>Résultats Détaillés</h2>
-    <div class="canvas-container">
-      <canvas id="resultCanvas" width="720" height="540"></canvas>
-    </div>
-    <div class="landmarks-info" id="landmarksInfo">
-      <p>Aucun visage détecté</p>
-    </div>
-    <button class="reset-btn" id="resetBtn2">Nouvelle Captura</button>
-  </section>
+    <section class="card results-section" id="resultsSection" style="display:none;">
+      <div class="card-title"><span>Résultats détaillés</span></div>
+      <div class="canvas-container">
+        <canvas id="resultCanvas" width="720" height="540"></canvas>
+      </div>
+      <div class="landmarks-info" id="landmarksInfo"><p>Aucun visage détecté</p></div>
+      <button class="btn-reset" id="resetBtn2">Nouvelle capture</button>
+    </section>
+  </div>
 
-  <script>
+<script>
     // ==========================================
     // CONFIGURATION & VERSIONNING
     // ==========================================
     const APP_VERSION = "2.0.0";
     const MODEL_VERSION = "MediaPipe holistic 0.4.0";
     const LANDMARK_COUNT = 468; // Visage MediaPipe
-
-    // Styles injectés
-    const style = document.createElement('style');
-    style.textContent = `
-      :root { --primary: #1976d2; --success: #4caf50; --error: #f44336; --bg: #f5f5f7; --card: #ffffff; }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: #333; }
-      .header { padding: 1rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-      .version-info { font-size: 0.8rem; color: #666; }
-      .controls { padding: 1rem; background: var(--card); border-bottom: 1px solid #eee; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-      .controls button { padding: 0.5rem 1rem; font-size: 0.8rem; }
-      .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; }
-      .panel { background: var(--card); border: 1px solid #ddd; border-radius: 8; overflow: hidden; }
-      .panel-header { padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee; font-size: 0.8rem; font-weight: 600; color: #555; }
-      .panel-left { display: flex; flex-direction: column; }
-      .panel-right { display: flex; flex-direction: column; justify-content: center; align-items: center; }
-      video, canvas { width: 100%; height: auto; max-height: 480px; }
-      #threeContainer { width: 100%; }
-      .panel #statusPanel { display: block; }
-      .results-section { padding: 1rem; background: var(--card); margin: 1rem; border-radius: 8; display: none; }
-      textarea { width: 100%; font-size: 0.7rem; }
-      button#copyBtn, button#downloadBtn { margin-right: 0.5rem; padding: 0.3rem 0.5rem; font-size: 0.7rem; }
-    `;
-    document.head.appendChild(style);
-
-    // ==========================================
+// ==========================================
     // INITIALISATION THREE.js
     // ==========================================
     let scene, camera, renderer, hemisphereLight, ambientLight;
@@ -167,12 +147,13 @@
     let holistic = null;
 
     function initMediaPipe() {
-      if (typeof mp === 'undefined') {
+      const HolisticCtor = window.Holistic || (window.mp?.holistic?.Holistic);
+      if (!HolisticCtor) {
         showStatus('MediaPipe non disponible', 'error');
         return false;
       }
 
-      holistic = new mp.holistic.Holistic({
+      holistic = new HolisticCtor({
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
       });
 
@@ -248,8 +229,8 @@
         ctx.lineWidth = 1;
 
         // Dessiner les connexions faciales MediaPipe
-        if (mp.faceConnections) {
-          const connections = mp.faceConnections.FACEMESH_TESSELATION;
+        if (window.FACEMESH_TESSELATION || window.mp?.faceConnections) {
+          const connections = (window.FACEMESH_TESSELATION || window.mp?.faceConnections?.FACEMESH_TESSELATION || []);
           for (let i = 0; i < connections.length; i++) {
             const connection = connections[i];
             const startIdx = connection[0];

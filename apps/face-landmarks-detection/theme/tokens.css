@@ -1,0 +1,33 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b1117;
+  --bg-glow: #16202b;
+  --surface: #111821;
+  --surface-card: #151d27;
+  --surface-elevated: #1a2430;
+  --line: #263241;
+  --text: #e6edf3;
+  --muted: #8b9eb3;
+  --accent: #38bdf8;
+  --accent-ink: #0b1218;
+  --accent-soft: #7dd3fc;
+  /* Compatibility aliases (mapped to Graphite palette) */
+  --lime: #38bdf8;
+  --lime-ink: #0b1218;
+  --mint: #7dd3fc;
+  --pink: #b07a8f;
+  --coral: #c06b6b;
+  --violet: #8b86b8;
+  --yellow: #c4a86a;
+  --orange: #c08a5a;
+  --blue: #5f86b8;
+
+  --font: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --mono: 'DM Mono', monospace;
+
+  --radius-sm: 8px;
+  --radius: 10px;
+  --radius-lg: 18px;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --transition: 0.2s ease;
+}
