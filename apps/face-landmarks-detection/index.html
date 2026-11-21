@@ -74,6 +74,7 @@
     let holistic = null;
     let video = null;
     let canvasCtx = null;
+    let pendingResultsResolve = null;
     
     // Vérifier la disponibilité
     const checkMpAvailability = setInterval(() => {
@@ -103,6 +104,14 @@
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5
       });
+
+      holistic.onResults = (results) => {
+        if (pendingResultsResolve) {
+          const resolve = pendingResultsResolve;
+          pendingResultsResolve = null;
+          resolve(results);
+        }
+      };
       
       // Interface utilisateur
       document.getElementById('loading').style.display = 'none';
