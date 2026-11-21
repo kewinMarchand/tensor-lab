@@ -1,26 +1,60 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="Face 3D Model">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" role="img" aria-labelledby="title desc">
+  <title id="title">Face 3D Model</title>
+  <desc id="desc">Modélisation faciale 3D en temps réel avec MediaPipe Holistic et Three.js</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0b1117"/>
-      <stop offset="100%" stop-color="#16202b"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
-      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+      <stop offset="0" stop-color="#111821"/>
+      <stop offset="1" stop-color="#0b1117"/>
     </linearGradient>
   </defs>
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <circle cx="930" cy="220" r="220" fill="url(#accent)"/>
-  <g fill="none" stroke="#263241" stroke-width="2">
-    <rect x="70" y="70" width="1060" height="490" rx="24"/>
+  <rect width="800" height="420" fill="url(#bg)"/>
+  <rect x="12" y="12" width="776" height="396" rx="18" fill="#151d27" stroke="#263241"/>
+
+  <text x="36" y="50" fill="#e6edf3" font-family="'Space Grotesk', system-ui, sans-serif" font-size="22" font-weight="700">Face 3D <tspan fill="#6f93b8">Model</tspan></text>
+  <text x="36" y="72" fill="#8b9eb3" font-family="'DM Mono', monospace" font-size="12">Repères MediaPipe · maillage 3D Three.js · export JSON</text>
+
+  <g transform="translate(36,96)">
+    <rect width="360" height="286" rx="14" fill="#111821" stroke="#263241"/>
+    <text x="20" y="30" fill="#8b9eb3" font-family="'DM Mono', monospace" font-size="11" letter-spacing="1">FLUX + REPÈRES</text>
+    <rect x="20" y="46" width="320" height="190" rx="10" fill="#0d141b" stroke="#263241"/>
+    <g fill="none" stroke="#38bdf8" stroke-width="1.6" opacity="0.95">
+      <path d="M180 78c38 0 62 29 62 66 0 50-29 80-62 80s-62-30-62-80c0-37 24-66 62-66z"/>
+      <path d="M156 128c10-9 20-9 30 0M204 128c-10-9-20-9-30 0"/>
+      <path d="M160 176c13 12 27 12 40 0"/>
+      <path d="M180 144v14M171 158h18"/>
+    </g>
+    <g fill="#7dd3fc" opacity="0.95">
+      <circle cx="171" cy="130" r="3"/><circle cx="189" cy="130" r="3"/>
+      <circle cx="156" cy="128" r="2.2"/><circle cx="186" cy="128" r="2.2"/><circle cx="204" cy="128" r="2.2"/>
+      <circle cx="160" cy="176" r="2.2"/><circle cx="180" cy="184" r="2.2"/><circle cx="200" cy="176" r="2.2"/>
+      <circle cx="180" cy="78" r="2.2"/><circle cx="180" cy="224" r="2.2"/><circle cx="118" cy="144" r="2.2"/><circle cx="242" cy="144" r="2.2"/>
+    </g>
+    <g font-family="'DM Mono', monospace" font-size="10" fill="#8b9eb3">
+      <text x="20" y="258">468 points faciaux</text>
+      <text x="230" y="258" fill="#8fb3cc">MediaPipe</text>
+    </g>
   </g>
-  <g fill="none" stroke="#38bdf8" stroke-width="3" opacity="0.9">
-    <path d="M600 150c90 0 150 70 150 160 0 120-70 190-150 190s-150-70-150-190c0-90 60-160 150-160z"/>
-    <path d="M540 285c20-20 40-20 60 0M660 285c-20-20-40-20-60 0M555 380c30 30 60 30 90 0"/>
+
+  <g transform="translate(412,96)">
+    <rect width="352" height="286" rx="14" fill="#111821" stroke="#263241"/>
+    <text x="20" y="30" fill="#8b9eb3" font-family="'DM Mono', monospace" font-size="11" letter-spacing="1">MODÈLE 3D</text>
+    <rect x="20" y="46" width="312" height="170" rx="10" fill="#0d141b" stroke="#263241"/>
+    <g transform="translate(176,132)" fill="none" stroke="#6f93b8" stroke-width="1.2" opacity="0.9">
+      <ellipse rx="54" ry="68"/>
+      <ellipse rx="54" ry="68" transform="rotate(20)"/>
+      <ellipse rx="54" ry="68" transform="rotate(-20)"/>
+      <path d="M-54 0C-30 -12 30 -12 54 0C30 12 -30 12 -54 0Z"/>
+      <path d="M0 -68C18 -35 18 35 0 68C-18 35 -18 -35 0 -68Z"/>
+      <path d="M-38 -38C-18 -52 18 -52 38 -38M-38 38C-18 52 18 52 38 38"/>
+    </g>
+    <g transform="translate(176,132)" fill="#7dd3fc" opacity="0.9">
+      <circle cx="-20" cy="-12" r="2.5"/><circle cx="20" cy="-12" r="2.5"/><circle cx="0" cy="18" r="2.5"/>
+    </g>
+    <g font-family="'DM Mono', monospace" font-size="10">
+      <rect x="20" y="232" width="148" height="28" rx="8" fill="#151d27" stroke="#263241"/>
+      <text x="34" y="250" fill="#8b9eb3">Three.js</text><text x="158" y="250" text-anchor="end" fill="#8fb3cc">mesh</text>
+      <rect x="184" y="232" width="148" height="28" rx="8" fill="#151d27" stroke="#263241"/>
+      <text x="198" y="250" fill="#8b9eb3">Export</text><text x="322" y="250" text-anchor="end" fill="#e6edf3">JSON</text>
+    </g>
   </g>
-  <g fill="#38bdf8" opacity="0.9">
-    <circle cx="555" cy="290" r="8"/><circle cx="645" cy="290" r="8"/>
-  </g>
-  <text x="90" y="560" fill="#e6edf3" font-size="52" font-family="Arial, sans-serif" font-weight="700">Face 3D Model</text>
-  <text x="90" y="595" fill="#8b9eb3" font-size="28" font-family="Arial, sans-serif">MediaPipe Holistic · Three.js · TensorFlow.js</text>
 </svg>
