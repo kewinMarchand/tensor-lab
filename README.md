@@ -20,17 +20,17 @@ Portail des applications de machine learning interactives (TensorFlow.js), avec 
 
 [Ouvrir l’app](https://kewinmarchand.github.io/tensor-lab/apps/baseball/) · [Code source](https://github.com/kewinMarchand/tensor-lab/tree/main/apps/baseball) — Classification des lancers MLB (Statcast) par réseau de neurones : entraînement, visualisation et inférence interactive. *(Démo GitHub Pages : frontend statique + backend Node.js hébergé sur Render ; cold start possible sur l’offre gratuite.)*
 
-### Face 3D Model
+### Face 3D Tensor
 
-[![Aperçu de Face 3D Model](apps/face-3d-model/preview.svg)](https://kewinmarchand.github.io/tensor-lab/apps/face-3d-model/)
+[![Aperçu de Face 3D Tensor](apps/face-3d-tensor/preview.svg)](https://kewinmarchand.github.io/tensor-lab/apps/face-3d-tensor/)
 
-[Ouvrir l’app](https://kewinmarchand.github.io/tensor-lab/apps/face-3d-model/) · [Code source](https://github.com/kewinMarchand/tensor-lab/tree/main/apps/face-3d-model) — Modélisation faciale 3D en temps réel : détection de repères avec MediaPipe Holistic, visualisation et export 3D avec Three.js.
+[Ouvrir l’app](https://kewinmarchand.github.io/tensor-lab/apps/face-3d-tensor/) · [Code source](https://github.com/kewinMarchand/tensor-lab/tree/main/apps/face-3d-tensor) — Modélisation faciale 3D en temps réel : détection de repères avec MediaPipe Holistic, visualisation et export 3D avec Three.js.
 
-### Face Landmarks Detection
+### Face Landmarks Tensor
 
-[![Aperçu de Face Landmarks Detection](apps/face-landmarks-detection/preview.svg)](https://kewinmarchand.github.io/tensor-lab/apps/face-landmarks-detection/)
+[![Aperçu de Face Landmarks Tensor](apps/face-landmarks-tensor/preview.svg)](https://kewinmarchand.github.io/tensor-lab/apps/face-landmarks-tensor/)
 
-[Ouvrir l’app](https://kewinmarchand.github.io/tensor-lab/apps/face-landmarks-detection/) · [Code source](https://github.com/kewinMarchand/tensor-lab/tree/main/apps/face-landmarks-detection) — Détection de repères faciaux sur image ou webcam avec MediaPipe Holistic et rendu sur canvas.
+[Ouvrir l’app](https://kewinmarchand.github.io/tensor-lab/apps/face-landmarks-tensor/) · [Code source](https://github.com/kewinMarchand/tensor-lab/tree/main/apps/face-landmarks-tensor) — Détection de repères faciaux sur image ou webcam avec MediaPipe Holistic et rendu sur canvas.
 
 ## Lancement local (expérience complète)
 

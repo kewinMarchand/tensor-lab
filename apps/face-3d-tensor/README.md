@@ -38,7 +38,7 @@ L'application suit le versionnement **Semantic Versioning 2.0.0** :
 Pourtracker les modifications, utilisez Git :
 
 ```bash
-cd K/_Kewin/GitHub/neon-tensors/apps/face-3d-model
+cd K/_Kewin/GitHub/tensor-lab/apps/face-3d-tensor
 git init
 git add .
 git commit -m "Face 3D Modeler v2.0.0 - MediaPipe + Three.js initial commit"
@@ -56,7 +56,7 @@ git tag v2.0.0
 
 ```bash
 # Dans le dossier de l'app
-cd K/_Kewin/GitHub/neon-tensors/apps/face-3d-model
+cd K/_Kewin/GitHub/tensor-lab/apps/face-3d-tensor
 
 # Ouvrir dans le navigateur
 google-chrome index.html
@@ -105,14 +105,14 @@ Ce projet est sous licence MIT. Voir le fichier LICENSE pour plus de détails.
 
 ## 👥 Auteur
 
-Développé dans le cadre du repository **neon-tensors** pour la modélisation faciale personnelle.
+Développé dans le cadre du repository **tensor-lab** pour la modélisation faciale personnelle.
 
 ## 🔄 Mise à jour
 
 Pour mettre à jour l'application :
 
 ```bash
-cd K/_Kewin/GitHub/neon-tensors/apps/face-3d-model
+cd K/_Kewin/GitHub/tensor-lab/apps/face-3d-tensor
 git pull origin main
 # ou remplacez les fichiers index.html et styles.css manuellement
 ```

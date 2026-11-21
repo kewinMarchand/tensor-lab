@@ -1,5 +1,5 @@
 {
   "name": "Tensor Lab",
   "description": "Applications de machine learning interactives (TensorFlow.js), déployées sur GitHub Pages.",
-  "apps": ["baseball", "face-3d-model", "face-landmarks-detection", "fear-greed"]
+  "apps": ["baseball", "face-3d-tensor", "face-landmarks-tensor", "fear-greed"]
 }

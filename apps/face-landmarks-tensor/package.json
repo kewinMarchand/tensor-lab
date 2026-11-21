@@ -1,5 +1,5 @@
 {
-  "name": "neon-face-landmarks-detection",
+  "name": "face-landmarks-tensor",
   "version": "1.0.0",
   "private": true,
   "description": "Face landmarks detection using TensorFlow.js",
