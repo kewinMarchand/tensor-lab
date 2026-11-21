@@ -6,38 +6,70 @@
       <stop offset="0" stop-color="#111821"/>
       <stop offset="1" stop-color="#0b1117"/>
     </linearGradient>
+    <linearGradient id="scan" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#38bdf8" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="frameClip"><rect x="20" y="46" width="420" height="220" rx="10"/></clipPath>
   </defs>
   <rect width="800" height="420" fill="url(#bg)"/>
   <rect x="12" y="12" width="776" height="396" rx="18" fill="#151d27" stroke="#263241"/>
 
   <text x="36" y="50" fill="#e6edf3" font-family="'Space Grotesk', system-ui, sans-serif" font-size="22" font-weight="700">Face Landmarks <tspan fill="#6f93b8">Tensor</tspan></text>
   <text x="36" y="72" fill="#8b9eb3" font-family="'DM Mono', monospace" font-size="12">Détection de repères faciaux · MediaPipe Holistic · canvas</text>
+  <circle cx="742" cy="46" r="5" fill="#8fb3cc"/><text x="694" y="50" fill="#8b9eb3" font-family="'DM Mono', monospace" font-size="11" text-anchor="end">READY</text>
 
   <g transform="translate(36,96)">
     <rect width="460" height="286" rx="14" fill="#111821" stroke="#263241"/>
     <text x="20" y="30" fill="#8b9eb3" font-family="'DM Mono', monospace" font-size="11" letter-spacing="1">IMAGE + LANDMARKS</text>
     <rect x="20" y="46" width="420" height="220" rx="10" fill="#0d141b" stroke="#263241"/>
-    <!-- Face outline -->
-    <g fill="none" stroke="#263241" stroke-width="2" opacity="0.6">
-      <path d="M230 88c52 0 86 40 86 92 0 70-40 112-86 112s-86-42-86-112c0-52 34-92 86-92z"/>
+    <g clip-path="url(#frameClip)">
+      <rect x="20" y="46" width="420" height="220" fill="#0d141b"/>
+      <!-- subtle grid -->
+      <g stroke="#1a2633" stroke-width="1">
+        <path d="M20 90h420M20 134h420M20 178h420M20 222h420"/>
+        <path d="M104 46v220M188 46v220M272 46v220M356 46v220"/>
+      </g>
+      <rect x="20" y="110" width="420" height="60" fill="url(#scan)"/>
+      <!-- face silhouette -->
+      <g fill="none">
+        <path d="M230 72c44 0 74 34 74 80 0 60-33 102-74 102s-74-42-74-102c0-46 30-80 74-80z" stroke="#263241" stroke-width="2"/>
+        <!-- tessellation -->
+        <g stroke="#38bdf8" stroke-opacity="0.35" stroke-width="0.8">
+          <path d="M230 72l-22 24-22 16 10 24-18 28 18 26-10 26 22 22 22 16 22-16 22-22-10-26 18-26-18-28 10-24-22-16z"/>
+          <path d="M208 96l22 18 22-18M186 112l22 22 22-14 22 14 22-22M174 140l22 8 34-14 34 14 22-8M156 168l40 0 34 14 34-14 40 0M174 194l22-8 34 12 34-12 22 8M196 220l34 10 34-10M208 96l-22 38M252 96l22 38M186 112l-12 56M274 112l12 56M196 148l34 6 34-6M196 148l-22 20M264 148l22 20M196 168l14 22 20 8 20-8 14-22M174 194l22 26M286 194l-22 26"/>
+        </g>
+        <!-- face oval -->
+        <path d="M230 72c44 0 74 34 74 80 0 60-33 102-74 102s-74-42-74-102c0-46 30-80 74-80z" stroke="#6f93b8" stroke-width="1.6"/>
+        <!-- eyebrows -->
+        <path d="M186 122c10-10 24-12 38-6" stroke="#8fb3cc" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M274 122c-10-10-24-12-38-6" stroke="#8fb3cc" stroke-width="1.8" stroke-linecap="round"/>
+        <!-- eyes -->
+        <path d="M190 142c8-8 20-8 28 0c-8 8-20 8-28 0z" stroke="#7dd3fc" stroke-width="1.5"/>
+        <path d="M242 142c8-8 20-8 28 0c-8 8-20 8-28 0z" stroke="#7dd3fc" stroke-width="1.5"/>
+        <circle cx="204" cy="142" r="2.5" fill="#38bdf8" stroke="none"/>
+        <circle cx="256" cy="142" r="2.5" fill="#38bdf8" stroke="none"/>
+        <!-- nose -->
+        <path d="M230 136v28m-10 6c6 4 14 4 20 0" stroke="#8fb3cc" stroke-width="1.5" stroke-linecap="round"/>
+        <!-- lips -->
+        <path d="M206 196c8 6 16 8 24 8s16-2 24-8" stroke="#b07a8f" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M206 196c8-5 16-7 24-7s16 2 24 7c-8 8-16 12-24 12s-16-4-24-12z" stroke="#b07a8f" stroke-width="1.2"/>
+        <!-- face bounding box -->
+        <rect x="148" y="64" width="164" height="198" rx="6" stroke="#38bdf8" stroke-opacity="0.45" stroke-width="1" stroke-dasharray="4 4"/>
+      </g>
+      <!-- landmarks points -->
+      <g fill="#7dd3fc">
+        <circle cx="230" cy="72" r="2"/><circle cx="230" cy="254" r="2"/><circle cx="156" cy="152" r="2"/><circle cx="304" cy="152" r="2"/>
+        <circle cx="190" cy="142" r="1.8"/><circle cx="218" cy="142" r="1.8"/><circle cx="242" cy="142" r="1.8"/><circle cx="270" cy="142" r="1.8"/>
+        <circle cx="204" cy="142" r="1.8"/><circle cx="256" cy="142" r="1.8"/>
+        <circle cx="206" cy="196" r="1.8"/><circle cx="230" cy="204" r="1.8"/><circle cx="254" cy="196" r="1.8"/><circle cx="230" cy="208" r="1.8"/>
+        <circle cx="220" cy="170" r="1.6"/><circle cx="240" cy="170" r="1.6"/><circle cx="230" cy="164" r="1.6"/>
+      </g>
     </g>
-    <!-- Mesh/tessellation lines -->
-    <g fill="none" stroke="#38bdf8" stroke-width="1" opacity="0.55">
-      <path d="M170 140l30-12 30 12M290 140l-30-12-30 12"/>
-      <path d="M184 198c30 22 62 22 92 0"/>
-      <path d="M230 154v20M216 174h28"/>
-      <path d="M144 180c25-30 55-45 86-45s61 15 86 45"/>
-      <path d="M160 210c20 30 45 45 70 45s50-15 70-45"/>
-      <path d="M190 115c12 12 22 18 40 18s28-6 40-18"/>
-    </g>
-    <!-- Landmark points -->
-    <g fill="#7dd3fc">
-      <circle cx="200" cy="140" r="3"/><circle cx="230" cy="128" r="3"/><circle cx="260" cy="140" r="3"/>
-      <circle cx="200" cy="140" r="1.8"/><circle cx="170" cy="140" r="1.8"/><circle cx="290" cy="140" r="1.8"/><circle cx="260" cy="140" r="1.8"/>
-      <circle cx="230" cy="154" r="2.2"/><circle cx="230" cy="174" r="2.2"/><circle cx="216" cy="174" r="1.8"/><circle cx="244" cy="174" r="1.8"/>
-      <circle cx="184" cy="198" r="2.2"/><circle cx="210" cy="212" r="2.2"/><circle cx="230" cy="216" r="2.2"/><circle cx="250" cy="212" r="2.2"/><circle cx="276" cy="198" r="2.2"/>
-      <circle cx="230" cy="88" r="2"/><circle cx="144" cy="180" r="2"/><circle cx="316" cy="180" r="2"/><circle cx="230" cy="292" r="2"/>
-      <circle cx="190" cy="115" r="1.8"/><circle cx="230" cy="133" r="1.8"/><circle cx="270" cy="115" r="1.8"/>
+    <g font-family="'DM Mono', monospace" font-size="10" fill="#8b9eb3">
+      <text x="20" y="258">468 points faciaux</text>
+      <text x="440" y="258" text-anchor="end" fill="#8fb3cc">FACEMESH</text>
     </g>
   </g>
 
@@ -45,18 +77,19 @@
     <rect width="252" height="286" rx="14" fill="#111821" stroke="#263241"/>
     <text x="20" y="30" fill="#8b9eb3" font-family="'DM Mono', monospace" font-size="11" letter-spacing="1">DÉTECTION</text>
     <g font-family="'DM Mono', monospace" font-size="10" fill="#8b9eb3">
-      <text x="20" y="64">Repères visage</text><text x="232" y="64" text-anchor="end" fill="#8fb3cc">468</text>
-      <rect x="20" y="74" width="212" height="8" rx="4" fill="#0d141b"/><rect x="20" y="74" width="190" height="8" rx="4" fill="#6f93b8"/>
-      <text x="20" y="104">Confiance min.</text><text x="232" y="104" text-anchor="end" fill="#e6edf3">0.50</text>
-      <rect x="20" y="114" width="212" height="8" rx="4" fill="#0d141b"/><rect x="20" y="114" width="106" height="8" rx="4" fill="#8fb3cc"/>
-      <text x="20" y="144">Suivi lissé</text><text x="232" y="144" text-anchor="end" fill="#e6edf3">ON</text>
-      <rect x="20" y="154" width="212" height="8" rx="4" fill="#0d141b"/><rect x="20" y="154" width="212" height="8" rx="4" fill="#38bdf8" opacity="0.7"/>
+      <text x="20" y="60">Repères visage</text><text x="232" y="60" text-anchor="end" fill="#8fb3cc">468</text>
+      <rect x="20" y="70" width="212" height="8" rx="4" fill="#0d141b"/><rect x="20" y="70" width="200" height="8" rx="4" fill="#6f93b8"/>
+      <text x="20" y="98">Confiance min.</text><text x="232" y="98" text-anchor="end" fill="#e6edf3">0.50</text>
+      <rect x="20" y="108" width="212" height="8" rx="4" fill="#0d141b"/><rect x="20" y="108" width="106" height="8" rx="4" fill="#8fb3cc"/>
+      <text x="20" y="136">Suivi lissé</text><text x="232" y="136" text-anchor="end" fill="#e6edf3">ON</text>
+      <rect x="20" y="146" width="212" height="8" rx="4" fill="#0d141b"/><rect x="20" y="146" width="212" height="8" rx="4" fill="#38bdf8" opacity="0.7"/>
+      <text x="20" y="174">Modèle</text><text x="232" y="174" text-anchor="end" fill="#e6edf3">Holistic</text>
     </g>
     <g font-family="'DM Mono', monospace" font-size="10">
-      <rect x="20" y="196" width="212" height="30" rx="8" fill="#151d27" stroke="#263241"/>
-      <text x="34" y="215" fill="#8b9eb3">Entrée</text><text x="222" y="215" text-anchor="end" fill="#e6edf3">image/webcam</text>
-      <rect x="20" y="236" width="212" height="30" rx="8" fill="#151d27" stroke="#263241"/>
-      <text x="34" y="255" fill="#8b9eb3">Sortie</text><text x="222" y="255" text-anchor="end" fill="#8fb3cc">canvas</text>
+      <rect x="20" y="192" width="212" height="28" rx="8" fill="#151d27" stroke="#263241"/>
+      <text x="34" y="210" fill="#8b9eb3">Entrée</text><text x="222" y="210" text-anchor="end" fill="#e6edf3">image / webcam</text>
+      <rect x="20" y="228" width="212" height="28" rx="8" fill="#151d27" stroke="#263241"/>
+      <text x="34" y="246" fill="#8b9eb3">Rendu</text><text x="222" y="246" text-anchor="end" fill="#8fb3cc">canvas 2D</text>
     </g>
   </g>
 </svg>
