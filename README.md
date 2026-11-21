@@ -8,25 +8,25 @@ Portail des applications de machine learning interactives (TensorFlow.js), avec 
 
 ## Les applications
 
-### Fear & Greed Tensor
+### Fear & Greed Tensor (bêta)
 
 [![Aperçu de Fear & Greed Tensor](apps/fear-greed/preview.svg)](https://kewinmarchand.github.io/tensor-lab/apps/fear-greed/)
 
 [Ouvrir l’app](https://kewinmarchand.github.io/tensor-lab/apps/fear-greed/) · [Code source](https://github.com/kewinMarchand/tensor-lab/tree/main/apps/fear-greed) — Indice Fear & Greed BTC/USD, graphiques horaires/journaliers/hebdomadaires, entraînement et prévisions avec TensorFlow.js. *(Démo GitHub Pages : frontend statique + backend Node.js hébergé sur Render ; cold start possible sur l’offre gratuite.)*
 
-### Baseball Tensor
+### Baseball Tensor (bêta)
 
 [![Aperçu de Baseball Tensor](apps/baseball/preview.svg)](https://kewinmarchand.github.io/tensor-lab/apps/baseball/)
 
 [Ouvrir l’app](https://kewinmarchand.github.io/tensor-lab/apps/baseball/) · [Code source](https://github.com/kewinMarchand/tensor-lab/tree/main/apps/baseball) — Classification des lancers MLB (Statcast) par réseau de neurones : entraînement, visualisation et inférence interactive. *(Démo GitHub Pages : frontend statique + backend Node.js hébergé sur Render ; cold start possible sur l’offre gratuite.)*
 
-### Face 3D Tensor
+### Face 3D Tensor (bêta)
 
 [![Aperçu de Face 3D Tensor](apps/face-3d-tensor/preview.svg)](https://kewinmarchand.github.io/tensor-lab/apps/face-3d-tensor/)
 
 [Ouvrir l’app](https://kewinmarchand.github.io/tensor-lab/apps/face-3d-tensor/) · [Code source](https://github.com/kewinMarchand/tensor-lab/tree/main/apps/face-3d-tensor) — Modélisation faciale 3D en temps réel : détection de repères avec MediaPipe Holistic, visualisation et export 3D avec Three.js.
 
-### Face Landmarks Tensor
+### Face Landmarks Tensor (bêta)
 
 [![Aperçu de Face Landmarks Tensor](apps/face-landmarks-tensor/preview.svg)](https://kewinmarchand.github.io/tensor-lab/apps/face-landmarks-tensor/)
 

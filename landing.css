@@ -434,3 +434,18 @@ main, .portal-footer { position: relative; z-index: 1; }
   .orbit, .hero-core, .hero-star, .live-dot { animation: none; }
   .game-card, .game-card-link .art img, .button { transition: none; }
 }
+
+/* Beta badge */
+.beta-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid rgba(255, 211, 107, 0.65);
+  border-radius: 999px;
+  color: #ffd36b;
+  font: 600 0.62rem "DM Mono", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
