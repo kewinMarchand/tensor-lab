@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="./theme/components.css">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous" onerror="this.onerror=null;this.src='https://unpkg.com/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js'"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/holistic.js" crossorigin="anonymous" onerror="this.onerror=null;this.src='https://unpkg.com/@mediapipe/holistic@0.5.1675471629/holistic.js'"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous" onerror="this.onerror=null;this.src='https://unpkg.com/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js'"></script>
 </head>
 <body>
   <div class="container">
@@ -73,24 +73,25 @@
     // Ces scripts rendent 'mp' disponible en global
     console.log('Attente du chargement MediaPipe...');
     
-    let holistic = null;
+    let faceMesh = null;
     let video = null;
     let canvasCtx = null;
     let pendingResultsResolve = null;
+    let lastFaceResults = null;
     let resultCanvas = null;
     let landmarksInfoEl = null;
     
     // Vérifier la disponibilité
-    const HOLISTIC_VERSION = '0.5.1675471629';
-    const HOLISTIC_BASES = [
-      `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@${HOLISTIC_VERSION}/`,
-      `https://unpkg.com/@mediapipe/holistic@${HOLISTIC_VERSION}/`,
+    const FACE_MESH_VERSION = '0.4.1633559619';
+    const FACE_MESH_BASES = [
+      `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${FACE_MESH_VERSION}/`,
+      `https://unpkg.com/@mediapipe/face_mesh@${FACE_MESH_VERSION}/`,
     ];
-    let holisticBase = HOLISTIC_BASES[0];
-    let holisticReady = false;
+    let faceMeshBase = FACE_MESH_BASES[0];
+    let faceMeshReady = false;
 
-    function findHolistic() {
-      return window.Holistic || window.mp?.holistic?.Holistic || null;
+    function findFaceMesh() {
+      return window.FaceMesh || window.mp?.faceMesh?.FaceMesh || null;
     }
 
     function loadScript(src) {
@@ -104,59 +105,64 @@
       });
     }
 
-    async function ensureHolisticLoaded() {
-      if (findHolistic()) return findHolistic();
-      for (const base of HOLISTIC_BASES) {
+    async function ensureFaceMeshLoaded() {
+      if (findFaceMesh()) return findFaceMesh();
+      for (const base of FACE_MESH_BASES) {
         try {
-          await loadScript(base + 'holistic.js');
-          const H = findHolistic();
-          if (H) { holisticBase = base; return H; }
+          await loadScript(base + 'face_mesh.js');
+          const H = findFaceMesh();
+          if (H) { faceMeshBase = base; return H; }
         } catch (_) {}
       }
       return null;
     }
 
     const checkMpAvailability = setInterval(() => {
-      const Holistic = findHolistic();
-      if (Holistic && !holisticReady) {
-        holisticReady = true;
-        console.log('MediaPipe holistic chargé !');
+      const FM = findFaceMesh();
+      if (FM && !faceMeshReady) {
+        faceMeshReady = true;
+        console.log('MediaPipe FaceMesh chargé !');
         clearInterval(checkMpAvailability);
-        initHolistic(Holistic);
+        initFaceMesh(FM);
       }
     }, 500);
 
     setTimeout(async () => {
-      if (holisticReady || findHolistic()) return;
+      if (faceMeshReady || findFaceMesh()) return;
       clearInterval(checkMpAvailability);
       document.getElementById('loading').style.display = 'none';
       document.getElementById('error').style.display = 'block';
       document.getElementById('error').innerHTML = 'Chargement MediaPipe lent... tentative CDN alternative.';
-      const H = await ensureHolisticLoaded();
-      if (H && !holisticReady) {
-        holisticReady = true;
+      const FM = await ensureFaceMeshLoaded();
+      if (FM && !faceMeshReady) {
+        faceMeshReady = true;
         document.getElementById('error').style.display = 'none';
-        initHolistic(H);
+        initFaceMesh(FM);
         return;
       }
       document.getElementById('error').style.display = 'block';
       document.getElementById('error').innerHTML = 'Timeout: MediaPipe non chargé. Vérifiez votre connexion réseau/adblock puis rechargez la page.';
     }, 45000);
 
-    function initHolistic(Holistic) {
-      const HolisticCtor = Holistic || findHolistic();
-      holistic = new HolisticCtor({
-        locateFile: (file) => holisticBase + file
+    async function initFaceMesh(FaceMeshCtorArg) {
+      const FaceMeshCtor = FaceMeshCtorArg || findFaceMesh();
+      faceMesh = new FaceMeshCtor({
+        locateFile: (file) => faceMeshBase + file
       });
-      
-      holistic.setOptions({
-        modelComplexity: 1,
-        smoothLandmarks: true,
+      window.__faceMesh = faceMesh;
+      if (typeof faceMesh.initialize === 'function') {
+        try { await faceMesh.initialize(); } catch (e) { console.warn('faceMesh initialize:', e?.message || e); }
+      }
+
+      faceMesh.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: true,
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5
       });
 
-      holistic.onResults = (results) => {
+      faceMesh.onResults = (results) => {
+        lastFaceResults = results;
         if (pendingResultsResolve) {
           const resolve = pendingResultsResolve;
           pendingResultsResolve = null;
@@ -235,25 +241,24 @@
       requestAnimationFrame(frame);
     }
 
-    async function sendToHolistic(input, timeoutMs = 30000) {
+    async function sendToFaceMesh(input, timeoutMs = 30000) {
+      lastFaceResults = null;
       return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          pendingResultsResolve = null;
-          reject(new Error('Timeout MediaPipe'));
-        }, timeoutMs);
-        pendingResultsResolve = (r) => { clearTimeout(timeout); resolve(r); };
-        Promise.resolve(holistic.send({ image: input })).catch((e) => {
-          clearTimeout(timeout);
-          pendingResultsResolve = null;
-          reject(e);
-        });
+        let done = false;
+        const finish = (fn, val) => { if (done) return; done = true; clearTimeout(timeout); pendingResultsResolve = null; fn(val); };
+        const timeout = setTimeout(() => finish(reject, new Error('Timeout MediaPipe')), timeoutMs);
+        pendingResultsResolve = (r) => finish(resolve, r);
+        Promise.resolve(faceMesh.send({ image: input })).then(() => {
+          if (lastFaceResults) finish(resolve, lastFaceResults);
+          else setTimeout(() => { if (lastFaceResults) finish(resolve, lastFaceResults); }, 150);
+        }).catch((e) => finish(reject, e));
       });
     }
 
     async function processImageWithMediaPipe(imgElement) {
       const canvas = resultCanvas || document.getElementById('resultCanvas');
       const landmarksInfo = landmarksInfoEl || document.getElementById('landmarksInfo');
-      if (!holistic) {
+      if (!faceMesh) {
         if (landmarksInfo) landmarksInfo.innerHTML = '<p>Module MediaPipe non initialisé. Rechargez la page.</p>';
         return;
       }
@@ -288,34 +293,31 @@
       try {
         let results;
         try {
-          results = await sendToHolistic(input, 30000);
+          results = await sendToFaceMesh(input, 30000);
         } catch (firstErr) {
           // Retry once: warmup/chargement initial peut dépasser le délai.
           if (String(firstErr?.message || '').includes('Timeout MediaPipe')) {
             if (landmarksInfo) landmarksInfo.innerHTML = '<p>Analyse en cours (nouvel essai)...</p>';
-            results = await sendToHolistic(input, 45000);
+            results = await sendToFaceMesh(input, 45000);
           } else {
             throw firstErr;
           }
         }
 
         setScan(false);
+        const faceLandmarks = results?.multiFaceLandmarks?.[0] || null;
 
-        if (results.faceLandmarks) {
+        if (faceLandmarks) {
           drawCtx.clearRect(0, 0, canvas.width, canvas.height);
           drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
-          drawFaceLandmarks(drawCtx, results.faceLandmarks, canvas.width, canvas.height);
-          if (landmarksInfo) landmarksInfo.innerHTML = '<p>Visage détecté - ' + results.faceLandmarks.length + ' points repère</p>';
-          fadeOutImage(canvas, drawCtx, imgElement, results.faceLandmarks);
+          drawFaceLandmarks(drawCtx, faceLandmarks, canvas.width, canvas.height);
+          if (landmarksInfo) landmarksInfo.innerHTML = '<p>Visage détecté - ' + faceLandmarks.length + ' points repère</p>';
+          fadeOutImage(canvas, drawCtx, imgElement, faceLandmarks);
         } else {
           drawCtx.clearRect(0, 0, canvas.width, canvas.height);
           drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
           if (landmarksInfo) landmarksInfo.innerHTML = '<p>Aucun visage détecté</p>';
           fadeOutImage(canvas, drawCtx, imgElement, null);
-        }
-
-        if (results.leftHandLandmarks && landmarksInfo) {
-          landmarksInfo.innerHTML += '<p>Mains détectées</p>';
         }
 
       } catch (err) {
