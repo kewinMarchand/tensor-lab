@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="./theme/components.css">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous" onerror="this.onerror=null;this.src='https://unpkg.com/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js'"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous" onerror="this.onerror=null;this.src='https://unpkg.com/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js'"></script>
+  <script src="./vendor/mediapipe/face_mesh/face_mesh.js" onerror="this.onerror=null;this.crossOrigin='anonymous';this.src='https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js';this.onerror=function(){this.onerror=null;this.src='https://unpkg.com/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js';}"></script>
 </head>
 <body>
   <div class="container">
@@ -84,6 +84,7 @@
     // Vérifier la disponibilité
     const FACE_MESH_VERSION = '0.4.1633559619';
     const FACE_MESH_BASES = [
+      './vendor/mediapipe/face_mesh/',
       `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${FACE_MESH_VERSION}/`,
       `https://unpkg.com/@mediapipe/face_mesh@${FACE_MESH_VERSION}/`,
     ];
@@ -147,7 +148,7 @@
     async function initFaceMesh(FaceMeshCtorArg) {
       const FaceMeshCtor = FaceMeshCtorArg || findFaceMesh();
       faceMesh = new FaceMeshCtor({
-        locateFile: (file) => faceMeshBase + file
+        locateFile: (file) => faceMeshBase + file.replace('_simd_wasm_bin', '_wasm_bin')
       });
       window.__faceMesh = faceMesh;
       if (typeof faceMesh.initialize === 'function') {
@@ -326,7 +327,8 @@
         const msg = String(err?.message || err);
         if (landmarksInfo) {
           if (msg.includes('Timeout MediaPipe')) {
-            landmarksInfo.innerHTML = '<p>Erreur analyse: MediaPipe ne répond pas (timeout). Vérifiez la connexion réseau/CDN puis réessayez.</p>';
+            const webgl = !!document.createElement('canvas').getContext('webgl2');
+            landmarksInfo.innerHTML = '<p>Erreur analyse: MediaPipe ne répond pas (timeout). WebGL2: ' + (webgl ? 'OK' : 'indisponible') + '. Essayez de recharger, désactiver l’accélération matérielle, ou tester un autre navigateur.</p>';
           } else {
             landmarksInfo.innerHTML = '<p>Erreur analyse: ' + msg + '</p>';
           }
