@@ -346,27 +346,21 @@
     const amb = new THREE.AmbientLight(0xffffff, 0.9); scene.add(amb);
     const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(200, 300, 400); scene.add(dir);
 
-    const { landmarks, triangulation, width, height } = payload;
-    const pts = landmarks.map(p => new THREE.Vector3(
-      (p.x || 0) * (width || 1) - (width || 1) / 2,
-      ((1 - (p.y || 0)) * (height || 1)) - (height || 1) / 2,
-      (p.z || 0) * (width || 1)
-    ));
+    const { landmarks, width, height } = payload;
+    const wPx = width || 1;
+    const hPx = height || 1;
+    const isNormalized = landmarks.every(p => Math.abs(p.x || 0) <= 1.5 && Math.abs(p.y || 0) <= 1.5);
+    const pts = landmarks.map(p => {
+      const x = isNormalized ? (p.x || 0) * wPx : (p.x || 0);
+      const y = isNormalized ? (p.y || 0) * hPx : (p.y || 0);
+      const z = isNormalized ? (p.z || 0) * wPx : (p.z || 0);
+      return new THREE.Vector3(x - wPx / 2, (hPx - y) - hPx / 2, -z);
+    });
 
     const geom = new THREE.BufferGeometry().setFromPoints(pts);
-    const pos = geom.attributes.position.array;
-    const tris = Array.isArray(triangulation) ? triangulation : [];
-    const indices = [];
-    if (tris.length && Array.isArray(tris[0])) for (const t of tris) indices.push(t[0], t[1], t[2]);
-    else for (let i = 0; i + 2 < tris.length; i += 3) indices.push(tris[i], tris[i+1], tris[i+2]);
-    if (indices.length) geom.setIndex(indices);
-    geom.computeVertexNormals();
-
-    const mesh = new THREE.Mesh(geom, new THREE.MeshPhongMaterial({ color: 0xc4a46a, wireframe: false, side: THREE.DoubleSide, flatShading: false, transparent: true, opacity: 0.85 }));
-    const wire = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: 0x8fae8b, wireframe: true, transparent: true, opacity: 0.35 }));
-    const points = new THREE.Points(geom, new THREE.PointsMaterial({ color: 0xff6b6b, size: 2.5, sizeAttenuation: true }));
+    const points = new THREE.Points(geom, new THREE.PointsMaterial({ color: 0x66d9a3, size: 2.2, sizeAttenuation: true }));
     const group = new THREE.Group();
-    group.add(mesh); group.add(wire); group.add(points);
+    group.add(points);
     scene.add(group);
 
     // fit camera
