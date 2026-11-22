@@ -14,9 +14,8 @@
   <link rel="stylesheet" href="./theme/base.css">
   <link rel="stylesheet" href="./theme/components.css">
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675471629/holistic.js" crossorigin="anonymous"></script>
 </head>
 <body>
   <div class="container">
@@ -189,11 +188,26 @@
       requestAnimationFrame(frame);
     }
 
+    async function sendToHolistic(input, timeoutMs = 30000) {
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          pendingResultsResolve = null;
+          reject(new Error('Timeout MediaPipe'));
+        }, timeoutMs);
+        pendingResultsResolve = (r) => { clearTimeout(timeout); resolve(r); };
+        Promise.resolve(holistic.send({ image: input })).catch((e) => {
+          clearTimeout(timeout);
+          pendingResultsResolve = null;
+          reject(e);
+        });
+      });
+    }
+
     async function processImageWithMediaPipe(imgElement) {
       const canvas = resultCanvas || document.getElementById('resultCanvas');
       const landmarksInfo = landmarksInfoEl || document.getElementById('landmarksInfo');
       if (!holistic) {
-        if (landmarksInfo) landmarksInfo.innerHTML = '<p>Module MediaPipe non initialis?. Rechargez la page.</p>';
+        if (landmarksInfo) landmarksInfo.innerHTML = '<p>Module MediaPipe non initialisé. Rechargez la page.</p>';
         return;
       }
       if (!canvas) return;
@@ -202,7 +216,7 @@
       canvas.style.display = 'block';
       if (landmarksInfo) landmarksInfo.innerHTML = '<p>Analyse en cours...</p>';
 
-      // Dimensionner le canvas au ratio de l'image et l'afficher imm?diatement
+      // Dimensionner le canvas au ratio de l'image et l'afficher immédiatement
       const maxDim = 960;
       const srcW = imgElement.naturalWidth || imgElement.width || 720;
       const srcH = imgElement.naturalHeight || imgElement.height || 540;
@@ -214,39 +228,60 @@
       drawCtx.clearRect(0, 0, canvas.width, canvas.height);
       drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
 
+      // MediaPipe est plus fiable avec un canvas qu'avec un HTMLImageElement.
+      const inputCanvas = document.createElement('canvas');
+      inputCanvas.width = canvas.width;
+      inputCanvas.height = canvas.height;
+      const inputCtx = inputCanvas.getContext('2d');
+      if (inputCtx) inputCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
+      const input = inputCtx ? inputCanvas : imgElement;
+
       setScan(true);
 
       try {
-        const results = await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => { pendingResultsResolve = null; reject(new Error('Timeout MediaPipe')); }, 30000);
-          pendingResultsResolve = (r) => { clearTimeout(timeout); resolve(r); };
-          holistic.send({ image: imgElement }).catch((e) => { clearTimeout(timeout); pendingResultsResolve = null; reject(e); });
-        });
+        let results;
+        try {
+          results = await sendToHolistic(input, 30000);
+        } catch (firstErr) {
+          // Retry once: warmup/chargement initial peut dépasser le délai.
+          if (String(firstErr?.message || '').includes('Timeout MediaPipe')) {
+            if (landmarksInfo) landmarksInfo.innerHTML = '<p>Analyse en cours (nouvel essai)...</p>';
+            results = await sendToHolistic(input, 45000);
+          } else {
+            throw firstErr;
+          }
+        }
 
         setScan(false);
 
         if (results.faceLandmarks) {
-          // dessiner landmarks sur l'image puis estomper l'image
           drawCtx.clearRect(0, 0, canvas.width, canvas.height);
           drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
           drawFaceLandmarks(drawCtx, results.faceLandmarks, canvas.width, canvas.height);
-          if (landmarksInfo) landmarksInfo.innerHTML = '<p>Visage d?tect? - ' + results.faceLandmarks.length + ' points rep?re</p>';
+          if (landmarksInfo) landmarksInfo.innerHTML = '<p>Visage détecté - ' + results.faceLandmarks.length + ' points repère</p>';
           fadeOutImage(canvas, drawCtx, imgElement, results.faceLandmarks);
         } else {
           drawCtx.clearRect(0, 0, canvas.width, canvas.height);
           drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
-          if (landmarksInfo) landmarksInfo.innerHTML = '<p>Aucun visage d?tect?</p>';
+          if (landmarksInfo) landmarksInfo.innerHTML = '<p>Aucun visage détecté</p>';
           fadeOutImage(canvas, drawCtx, imgElement, null);
         }
 
         if (results.leftHandLandmarks && landmarksInfo) {
-          landmarksInfo.innerHTML += '<p>Mains d?tect?es</p>';
+          landmarksInfo.innerHTML += '<p>Mains détectées</p>';
         }
 
       } catch (err) {
         setScan(false);
         console.error('Erreur MediaPipe:', err);
-        if (landmarksInfo) landmarksInfo.innerHTML = '<p>Erreur analyse: ' + err.message + '</p>';
+        const msg = String(err?.message || err);
+        if (landmarksInfo) {
+          if (msg.includes('Timeout MediaPipe')) {
+            landmarksInfo.innerHTML = '<p>Erreur analyse: MediaPipe ne répond pas (timeout). Vérifiez la connexion réseau/CDN puis réessayez.</p>';
+          } else {
+            landmarksInfo.innerHTML = '<p>Erreur analyse: ' + msg + '</p>';
+          }
+        }
       }
     }
 
