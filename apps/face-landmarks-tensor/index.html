@@ -81,25 +81,72 @@
     let landmarksInfoEl = null;
     
     // Vérifier la disponibilité
+    const HOLISTIC_VERSION = '0.5.1675471629';
+    const HOLISTIC_BASES = [
+      `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@${HOLISTIC_VERSION}/`,
+      `https://unpkg.com/@mediapipe/holistic@${HOLISTIC_VERSION}/`,
+    ];
+    let holisticBase = HOLISTIC_BASES[0];
+    let holisticReady = false;
+
+    function findHolistic() {
+      return window.Holistic || window.mp?.holistic?.Holistic || null;
+    }
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.crossOrigin = 'anonymous';
+        s.onload = () => resolve(src);
+        s.onerror = () => reject(new Error('load failed: ' + src));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function ensureHolisticLoaded() {
+      if (findHolistic()) return findHolistic();
+      for (const base of HOLISTIC_BASES) {
+        try {
+          await loadScript(base + 'holistic.js');
+          const H = findHolistic();
+          if (H) { holisticBase = base; return H; }
+        } catch (_) {}
+      }
+      return null;
+    }
+
     const checkMpAvailability = setInterval(() => {
-      const Holistic = window.Holistic || (window.mp?.holistic?.Holistic);
-      if (Holistic) {
-        console.log('MediaPipe holistic charg? !');
+      const Holistic = findHolistic();
+      if (Holistic && !holisticReady) {
+        holisticReady = true;
+        console.log('MediaPipe holistic chargé !');
         clearInterval(checkMpAvailability);
         initHolistic(Holistic);
       }
     }, 500);
-    
-    setTimeout(() => {
+
+    setTimeout(async () => {
+      if (holisticReady || findHolistic()) return;
       clearInterval(checkMpAvailability);
+      document.getElementById('loading').style.display = 'none';
       document.getElementById('error').style.display = 'block';
-      document.getElementById('error').innerHTML = 'Timeout: MediaPipe non chargé après 30s';
-    }, 30000);
-    
+      document.getElementById('error').innerHTML = 'Chargement MediaPipe lent... tentative CDN alternative.';
+      const H = await ensureHolisticLoaded();
+      if (H && !holisticReady) {
+        holisticReady = true;
+        document.getElementById('error').style.display = 'none';
+        initHolistic(H);
+        return;
+      }
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('error').innerHTML = 'Timeout: MediaPipe non chargé. Vérifiez votre connexion réseau/adblock puis rechargez la page.';
+    }, 45000);
+
     function initHolistic(Holistic) {
-      const HolisticCtor = Holistic || window.Holistic || window.mp?.holistic?.Holistic;
+      const HolisticCtor = Holistic || findHolistic();
       holistic = new HolisticCtor({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+        locateFile: (file) => holisticBase + file
       });
       
       holistic.setOptions({
