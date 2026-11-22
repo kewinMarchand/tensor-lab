@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0b1117">
-  <meta name="description" content="Face Landmarks Tensor — détection de repères faciaux avec MediaPipe Holistic.">
+  <meta name="description" content="Face Landmarks Tensor — détection de repères faciaux avec TensorFlow.js.">
   <title>Face Landmarks Tensor — Tensor Lab</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,8 +14,7 @@
   <link rel="stylesheet" href="./theme/base.css">
   <link rel="stylesheet" href="./theme/components.css">
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous" onerror="this.onerror=null;this.src='https://unpkg.com/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js'"></script>
-  <script src="./vendor/mediapipe/face_mesh/face_mesh.js" onerror="this.onerror=null;this.crossOrigin='anonymous';this.src='https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js';this.onerror=function(){this.onerror=null;this.src='https://unpkg.com/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js';}"></script>
+  <!-- TFJS chargé à la demande par l'application -->
 </head>
 <body>
   <div class="container">
@@ -24,12 +23,12 @@
         <div class="brand-icon" aria-hidden="true">◎</div>
         <div class="header-title">
           <h1>Face Landmarks <span>Tensor</span></h1>
-          <p>Détection de repères faciaux en image — MediaPipe Holistic + TensorFlow.js</p>
+          <p>Détection de repères faciaux en image — TensorFlow.js</p>
         </div>
       </div>
       <div class="header-status">
         <a class="repo-link repo-link--icon" href="https://github.com/kewinMarchand/tensor-lab/tree/main/apps/face-landmarks-tensor" target="_blank" rel="noopener noreferrer" aria-label="Code source sur GitHub" title="Code source"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a>
-        <div class="status-badge status-idle"><span class="live-dot"></span><span>MediaPipe</span></div>
+        <div class="status-badge status-idle"><span class="live-dot"></span><span>TensorFlow.js</span></div>
       </div>
     </header>
 
@@ -64,413 +63,263 @@
         </div>
       </div>
       <div class="landmarks-info" id="landmarksInfo"><p>Déplacez l'image pour voir les repères</p></div>
-      <button class="btn-reset reset-btn" id="resetBtn">Nouvelle détection</button>
+      <div class="controls" style="margin-top:12px; gap:8px; display:flex; flex-wrap:wrap;">
+        <button class="btn-action" id="copyJsonBtn" type="button">Copier JSON</button>
+        <button class="btn-action" id="downloadJsonBtn" type="button">Télécharger JSON</button>
+        <button class="btn-reset reset-btn" id="resetBtn" type="button">Nouvelle détection</button>
+      </div>
+      <details style="margin-top:12px;">
+        <summary class="small muted" style="cursor:pointer;">Données landmarks (JSON)</summary>
+        <pre id="landmarksData" class="mono" style="margin-top:8px; max-height:260px; overflow:auto; white-space:pre-wrap; background:#111; padding:10px; border-radius:8px; border:1px solid #333;"></pre>
+      </details>
     </section>
   </div>
 
 <script>
-    // Attendre que MediaPipe soit chargé via les scripts CDN
-    // Ces scripts rendent 'mp' disponible en global
-    console.log('Attente du chargement MediaPipe...');
-    
-    let faceMesh = null;
-    let video = null;
-    let canvasCtx = null;
-    let pendingResultsResolve = null;
-    let lastFaceResults = null;
-    let resultCanvas = null;
-    let landmarksInfoEl = null;
-    
-    // Vérifier la disponibilité
-    const FACE_MESH_VERSION = '0.4.1633559619';
-    const FACE_MESH_BASES = [
-      './vendor/mediapipe/face_mesh/',
-      `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${FACE_MESH_VERSION}/`,
-      `https://unpkg.com/@mediapipe/face_mesh@${FACE_MESH_VERSION}/`,
-    ];
-    let faceMeshBase = FACE_MESH_BASES[0];
-    let faceMeshReady = false;
+  let detector = null;
+  let detectorLoading = null;
+  let resultCanvas = null;
+  let landmarksInfoEl = null;
+  let lastLandmarksPayload = null;
 
-    function findFaceMesh() {
-      return window.FaceMesh || window.mp?.faceMesh?.FaceMesh || null;
-    }
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.crossOrigin = 'anonymous';
+      s.onload = () => resolve(src);
+      s.onerror = () => reject(new Error('load failed: ' + src));
+      document.head.appendChild(s);
+    });
+  }
 
-    function loadScript(src) {
-      return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.crossOrigin = 'anonymous';
-        s.onload = () => resolve(src);
-        s.onerror = () => reject(new Error('load failed: ' + src));
-        document.head.appendChild(s);
-      });
-    }
+  function setScan(active) {
+    const el = document.getElementById('scanOverlay');
+    if (el) el.classList.toggle('active', !!active);
+  }
 
-    async function ensureFaceMeshLoaded() {
-      if (findFaceMesh()) return findFaceMesh();
-      for (const base of FACE_MESH_BASES) {
-        try {
-          await loadScript(base + 'face_mesh.js');
-          const H = findFaceMesh();
-          if (H) { faceMeshBase = base; return H; }
-        } catch (_) {}
+  function setStatus(text, isError = false) {
+    const ready = document.getElementById('ready');
+    const error = document.getElementById('error');
+    const loading = document.getElementById('loading');
+    if (loading) loading.style.display = 'none';
+    if (ready) { ready.style.display = isError ? 'none' : 'block'; ready.innerHTML = '<p>' + text + '</p>'; }
+    if (error) { error.style.display = isError ? 'block' : 'none'; error.innerHTML = isError ? text : ''; }
+  }
+
+  async function ensureDetector() {
+    if (detector) return detector;
+    if (detectorLoading) return detectorLoading;
+    detectorLoading = (async () => {
+      setStatus('Chargement de TensorFlow.js...');
+      const scripts = [
+        'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.22.0/dist/tf-core.min.js',
+        'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.22.0/dist/tf-converter.min.js',
+        'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.22.0/dist/tf-backend-webgl.min.js',
+        'https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.6/dist/face-landmarks-detection.min.js',
+      ];
+      for (const src of scripts) {
+        if (src.includes('tf-core') && window.tf?.engine) continue;
+        if (src.includes('face-landmarks-detection') && window.faceLandmarksDetection) continue;
+        await loadScript(src);
       }
-      return null;
-    }
+      if (!window.tf || !window.faceLandmarksDetection) throw new Error('TensorFlow.js non disponible');
+      await window.tf.ready();
+      try { await window.tf.setBackend('webgl'); } catch (_) {}
+      detector = await window.faceLandmarksDetection.createDetector(
+        window.faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
+        { runtime: 'tfjs', maxFaces: 1, refineLandmarks: true }
+      );
+      return detector;
+    })().catch((e) => { detectorLoading = null; throw e; });
+    return detectorLoading;
+  }
 
-    const checkMpAvailability = setInterval(() => {
-      const FM = findFaceMesh();
-      if (FM && !faceMeshReady) {
-        faceMeshReady = true;
-        console.log('MediaPipe FaceMesh chargé !');
-        clearInterval(checkMpAvailability);
-        initFaceMesh(FM);
+  function drawImageFaded(ctx, img, w, h, alpha) {
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#0d141b';
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(img, 0, 0, w, h);
+    ctx.globalAlpha = 1;
+  }
+
+  function drawFaceLandmarks(ctx, landmarks, imgWidth, imgHeight) {
+    if (!landmarks || !landmarks.length) return;
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 1.5;
+    const connections = window.FACEMESH_TESSELATION || window.faceLandmarksDetection?.FACEMESH_TESSELATION || [];
+    if (connections.length) {
+      for (const c of connections) {
+        const a = landmarks[c[0]], b = landmarks[c[1]];
+        if (!a || !b) continue;
+        ctx.beginPath();
+        ctx.moveTo(a.x * imgWidth, a.y * imgHeight);
+        ctx.lineTo(b.x * imgWidth, b.y * imgHeight);
+        ctx.stroke();
       }
-    }, 500);
-
-    setTimeout(async () => {
-      if (faceMeshReady || findFaceMesh()) return;
-      clearInterval(checkMpAvailability);
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('error').style.display = 'block';
-      document.getElementById('error').innerHTML = 'Chargement MediaPipe lent... tentative CDN alternative.';
-      const FM = await ensureFaceMeshLoaded();
-      if (FM && !faceMeshReady) {
-        faceMeshReady = true;
-        document.getElementById('error').style.display = 'none';
-        initFaceMesh(FM);
-        return;
+    } else {
+      ctx.fillStyle = 'red';
+      for (const p of landmarks) {
+        ctx.beginPath();
+        ctx.arc(p.x * imgWidth, p.y * imgHeight, 1.5, 0, Math.PI * 2);
+        ctx.fill();
       }
-      document.getElementById('error').style.display = 'block';
-      document.getElementById('error').innerHTML = 'Timeout: MediaPipe non chargé. Vérifiez votre connexion réseau/adblock puis rechargez la page.';
-    }, 45000);
-
-    async function initFaceMesh(FaceMeshCtorArg) {
-      const FaceMeshCtor = FaceMeshCtorArg || findFaceMesh();
-      faceMesh = new FaceMeshCtor({
-        locateFile: (file) => faceMeshBase + file.replace('_simd_wasm_bin', '_wasm_bin')
-      });
-      window.__faceMesh = faceMesh;
-      if (typeof faceMesh.initialize === 'function') {
-        try { await faceMesh.initialize(); } catch (e) { console.warn('faceMesh initialize:', e?.message || e); }
-      }
-
-      faceMesh.setOptions({
-        maxNumFaces: 1,
-        refineLandmarks: true,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
-      });
-
-      faceMesh.onResults = (results) => {
-        lastFaceResults = results;
-        if (pendingResultsResolve) {
-          const resolve = pendingResultsResolve;
-          pendingResultsResolve = null;
-          resolve(results);
-        }
-      };
-      
-      // Interface utilisateur
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('ready').style.display = 'block';
-      document.getElementById('dropZone').style.display = 'block';
-      
-      // Gestion du fichier
-      const fileInput = document.getElementById('fileInput');
-      resultCanvas = document.getElementById('resultCanvas');
-      const ctx = resultCanvas.getContext ? resultCanvas.getContext('2d') : null;
-      landmarksInfoEl = document.getElementById('landmarksInfo');
-      const resetBtn = document.getElementById('resetBtn');
-      
-      if (ctx) {
-        fileInput.addEventListener('change', (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
-          
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const img = new Image();
-            img.onload = () => {
-              // Traiter avec MediaPipe (le canvas est dimensionn? dans processImageWithMediaPipe)
-              processImageWithMediaPipe(img);
-            };
-            img.onerror = (err) => {
-              console.error('Erreur image:', err);
-              alert('Erreur lecture image');
-            };
-            img.src = e.target.result;
-          };
-          reader.readAsDataURL(file);
-        });
-      }
-      
-      resetBtn.addEventListener('click', () => {
-        document.getElementById('resultsSection').style.display = 'none';
-        if (resultCanvas) resultCanvas.style.display = 'none';
-        if (landmarksInfoEl) landmarksInfoEl.innerHTML = '<p>Chargez une image ou activez la webcam</p>';
-        fileInput.value = '';
-      });
     }
-    
-    // Fonction pour traiter une image avec MediaPipe
-    function setScan(active) {
-      const el = document.getElementById('scanOverlay');
-      if (el) el.classList.toggle('active', !!active);
-    }
+  }
 
-    function drawImageFaded(ctx, img, w, h, alpha) {
-      ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = '#0d141b';
-      ctx.fillRect(0, 0, w, h);
-      ctx.globalAlpha = alpha;
-      ctx.drawImage(img, 0, 0, w, h);
-      ctx.globalAlpha = 1;
+  function fadeOutImage(canvas, ctx, img, landmarks) {
+    const w = canvas.width, h = canvas.height;
+    const start = performance.now();
+    const duration = 700;
+    function frame(now) {
+      const t = Math.min(1, (now - start) / duration);
+      drawImageFaded(ctx, img, w, h, 1 - t);
+      if (landmarks) drawFaceLandmarks(ctx, landmarks, w, h);
+      if (t < 1) requestAnimationFrame(frame);
     }
+    requestAnimationFrame(frame);
+  }
 
-    function fadeOutImage(canvas, ctx, img, landmarks) {
-      const w = canvas.width, h = canvas.height;
-      const start = performance.now();
-      const duration = 700;
-      function frame(now) {
-        const t = Math.min(1, (now - start) / duration);
-        const alpha = 1 - t;
-        drawImageFaded(ctx, img, w, h, alpha);
-        if (landmarks) drawFaceLandmarks(ctx, landmarks, w, h);
-        if (t < 1) requestAnimationFrame(frame);
-      }
-      requestAnimationFrame(frame);
-    }
+  function setLandmarksData(payload) {
+    lastLandmarksPayload = payload;
+    const el = document.getElementById('landmarksData');
+    if (el) el.textContent = payload ? JSON.stringify(payload, null, 2) : '';
+  }
 
-    async function sendToFaceMesh(input, timeoutMs = 30000) {
-      lastFaceResults = null;
-      return new Promise((resolve, reject) => {
-        let done = false;
-        const finish = (fn, val) => { if (done) return; done = true; clearTimeout(timeout); pendingResultsResolve = null; fn(val); };
-        const timeout = setTimeout(() => finish(reject, new Error('Timeout MediaPipe')), timeoutMs);
-        pendingResultsResolve = (r) => finish(resolve, r);
-        Promise.resolve(faceMesh.send({ image: input })).then(() => {
-          if (lastFaceResults) finish(resolve, lastFaceResults);
-          else setTimeout(() => { if (lastFaceResults) finish(resolve, lastFaceResults); }, 150);
-        }).catch((e) => finish(reject, e));
-      });
-    }
+  async function processImage(imgElement, fileName = 'image') {
+    const canvas = resultCanvas || document.getElementById('resultCanvas');
+    const landmarksInfo = landmarksInfoEl || document.getElementById('landmarksInfo');
+    if (!canvas) return;
 
-    let tfjsDetector = null;
-    let tfjsLoading = null;
-    async function ensureTfjsDetector() {
-      if (tfjsDetector) return tfjsDetector;
-      if (tfjsLoading) return tfjsLoading;
-      tfjsLoading = (async () => {
-        const scripts = [
-          'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.22.0/dist/tf-core.min.js',
-          'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.22.0/dist/tf-converter.min.js',
-          'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.22.0/dist/tf-backend-webgl.min.js',
-          'https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.6/dist/face-landmarks-detection.min.js',
-        ];
-        for (const src of scripts) {
-          if (src.includes('tf-core') && window.tf?.engine) continue;
-          if (src.includes('face-landmarks-detection') && window.faceLandmarksDetection) continue;
-          await loadScript(src);
-        }
-        if (!window.tf || !window.faceLandmarksDetection) throw new Error('TFJS non disponible');
-        await window.tf.ready();
-        try { await window.tf.setBackend('webgl'); } catch (_) {}
-        tfjsDetector = await window.faceLandmarksDetection.createDetector(
-          window.faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
-          { runtime: 'tfjs', maxFaces: 1, refineLandmarks: true }
-        );
-        return tfjsDetector;
-      })().catch((e) => { tfjsLoading = null; throw e; });
-      return tfjsLoading;
-    }
+    document.getElementById('resultsSection').style.display = 'block';
+    canvas.style.display = 'block';
+    if (landmarksInfo) landmarksInfo.innerHTML = '<p>Analyse en cours...</p>';
+    setLandmarksData(null);
+    setScan(true);
 
-    async function runTfjsFallback(imgElement, canvas, drawCtx, landmarksInfo) {
-      if (landmarksInfo) landmarksInfo.innerHTML = '<p>Fallback TFJS en cours...</p>';
-      const detector = await ensureTfjsDetector();
-      const faces = await detector.estimateFaces(imgElement, { flipHorizontal: false });
+    const maxDim = 960;
+    const srcW = imgElement.naturalWidth || imgElement.width || 720;
+    const srcH = imgElement.naturalHeight || imgElement.height || 540;
+    const scale = Math.min(1, maxDim / Math.max(srcW, srcH));
+    canvas.width = Math.round(srcW * scale);
+    canvas.height = Math.round(srcH * scale);
+    const drawCtx = canvas.getContext('2d');
+    if (!drawCtx) return;
+    drawCtx.clearRect(0, 0, canvas.width, canvas.height);
+    drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
+
+    try {
+      const det = await ensureDetector();
+      setStatus('Modèle prêt — sélectionnez une image.');
+      const faces = await det.estimateFaces(imgElement, { flipHorizontal: false });
       const face = faces?.[0];
       const kps = face?.keypoints || [];
-      const w = imgElement.naturalWidth || imgElement.width || canvas.width;
-      const h = imgElement.naturalHeight || imgElement.height || canvas.height;
-      const landmarks = kps.map(kp => ({ x: (kp.x || 0) / w, y: (kp.y || 0) / h }));
-      setScan(false);
+      const landmarks = kps.map(kp => ({ x: (kp.x || 0) / srcW, y: (kp.y || 0) / srcH, name: kp.name || null }));
+      const payload = {
+        file: fileName,
+        width: srcW,
+        height: srcH,
+        model: 'tfjs-face-landmarks-detection@1.0.6',
+        runtime: 'tfjs',
+        faces: faces.length,
+        landmarksCount: landmarks.length,
+        landmarks,
+        box: face?.box || null,
+      };
+      setLandmarksData(payload);
+
       drawCtx.clearRect(0, 0, canvas.width, canvas.height);
       drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
       if (landmarks.length) {
         drawFaceLandmarks(drawCtx, landmarks, canvas.width, canvas.height);
-        if (landmarksInfo) landmarksInfo.innerHTML = '<p>Visage détecté (fallback TFJS) - ' + landmarks.length + ' points repère</p>';
+        if (landmarksInfo) landmarksInfo.innerHTML = '<p>Visage détecté - ' + landmarks.length + ' points repère</p>';
         fadeOutImage(canvas, drawCtx, imgElement, landmarks);
       } else {
-        if (landmarksInfo) landmarksInfo.innerHTML = '<p>Aucun visage détecté (fallback TFJS)</p>';
+        if (landmarksInfo) landmarksInfo.innerHTML = '<p>Aucun visage détecté</p>';
         fadeOutImage(canvas, drawCtx, imgElement, null);
       }
+    } catch (err) {
+      console.error('Erreur détection:', err);
+      if (landmarksInfo) landmarksInfo.innerHTML = '<p>Erreur analyse: ' + String(err?.message || err) + '</p>';
+    } finally {
+      setScan(false);
+    }
+  }
+
+  function downloadJson() {
+    if (!lastLandmarksPayload) { alert('Aucune donnée à télécharger.'); return; }
+    const blob = new Blob([JSON.stringify(lastLandmarksPayload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    const base = (lastLandmarksPayload.file || 'landmarks').replace(/\.[^.]+$/, '');
+    a.href = URL.createObjectURL(blob);
+    a.download = base + '-landmarks.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  async function copyJson() {
+    if (!lastLandmarksPayload) { alert('Aucune donnée à copier.'); return; }
+    const txt = JSON.stringify(lastLandmarksPayload, null, 2);
+    try { await navigator.clipboard.writeText(txt); alert('JSON copié.'); }
+    catch (_) { window.prompt('Copiez le JSON:', txt); }
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    resultCanvas = document.getElementById('resultCanvas');
+    landmarksInfoEl = document.getElementById('landmarksInfo');
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const resetBtn = document.getElementById('resetBtn');
+    const copyBtn = document.getElementById('copyJsonBtn');
+    const dlBtn = document.getElementById('downloadJsonBtn');
+
+    try {
+      setStatus('Chargement du modèle TFJS...');
+      await ensureDetector();
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('ready').style.display = 'block';
+      document.getElementById('ready').innerHTML = '<p>Prêt — sélectionnez une image.</p>';
+      document.getElementById('dropZone').style.display = 'block';
+    } catch (e) {
+      console.error(e);
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('error').innerHTML = 'Erreur chargement TFJS: ' + String(e?.message || e);
     }
 
-    async function processImageWithMediaPipe(imgElement) {
-      const canvas = resultCanvas || document.getElementById('resultCanvas');
-      const landmarksInfo = landmarksInfoEl || document.getElementById('landmarksInfo');
-      if (!faceMesh) {
-        if (landmarksInfo) landmarksInfo.innerHTML = '<p>Module MediaPipe non initialisé. Rechargez la page.</p>';
-        return;
-      }
-      if (!canvas) return;
-
-      document.getElementById('resultsSection').style.display = 'block';
-      canvas.style.display = 'block';
-      if (landmarksInfo) landmarksInfo.innerHTML = '<p>Analyse en cours...</p>';
-
-      // Dimensionner le canvas au ratio de l'image et l'afficher immédiatement
-      const maxDim = 960;
-      const srcW = imgElement.naturalWidth || imgElement.width || 720;
-      const srcH = imgElement.naturalHeight || imgElement.height || 540;
-      const scale = Math.min(1, maxDim / Math.max(srcW, srcH));
-      canvas.width = Math.round(srcW * scale);
-      canvas.height = Math.round(srcH * scale);
-      const drawCtx = canvas.getContext('2d');
-      if (!drawCtx) return;
-      drawCtx.clearRect(0, 0, canvas.width, canvas.height);
-      drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
-
-      // MediaPipe est plus fiable avec un canvas qu'avec un HTMLImageElement.
-      const inputCanvas = document.createElement('canvas');
-      inputCanvas.width = canvas.width;
-      inputCanvas.height = canvas.height;
-      const inputCtx = inputCanvas.getContext('2d');
-      if (inputCtx) inputCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
-      const input = inputCtx ? inputCanvas : imgElement;
-
-      setScan(true);
-
-      try {
-        let results;
-        try {
-          results = await sendToFaceMesh(input, 30000);
-        } catch (firstErr) {
-          // Retry once: warmup/chargement initial peut dépasser le délai.
-          if (String(firstErr?.message || '').includes('Timeout MediaPipe')) {
-            if (landmarksInfo) landmarksInfo.innerHTML = '<p>Analyse en cours (nouvel essai)...</p>';
-            results = await sendToFaceMesh(input, 45000);
-          } else {
-            throw firstErr;
-          }
-        }
-
-        setScan(false);
-        const faceLandmarks = results?.multiFaceLandmarks?.[0] || null;
-
-        if (faceLandmarks) {
-          drawCtx.clearRect(0, 0, canvas.width, canvas.height);
-          drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
-          drawFaceLandmarks(drawCtx, faceLandmarks, canvas.width, canvas.height);
-          if (landmarksInfo) landmarksInfo.innerHTML = '<p>Visage détecté - ' + faceLandmarks.length + ' points repère</p>';
-          fadeOutImage(canvas, drawCtx, imgElement, faceLandmarks);
-        } else {
-          drawCtx.clearRect(0, 0, canvas.width, canvas.height);
-          drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
-          if (landmarksInfo) landmarksInfo.innerHTML = '<p>Aucun visage détecté</p>';
-          fadeOutImage(canvas, drawCtx, imgElement, null);
-        }
-
-      } catch (err) {
-        console.warn('MediaPipe échec, tentative fallback TFJS:', err?.message || err);
-        try {
-          await runTfjsFallback(imgElement, canvas, drawCtx, landmarksInfo);
-          return;
-        } catch (fallbackErr) {
-          setScan(false);
-          console.error('Erreur MediaPipe:', err);
-          console.error('Erreur fallback TFJS:', fallbackErr);
-          const msg = String(err?.message || err);
-          const fbMsg = String(fallbackErr?.message || fallbackErr);
-          if (landmarksInfo) {
-            if (msg.includes('Timeout MediaPipe')) {
-              const webgl = !!document.createElement('canvas').getContext('webgl2');
-              landmarksInfo.innerHTML = '<p>Erreur analyse: MediaPipe timeout; fallback TFJS échoué (' + fbMsg + '). WebGL2: ' + (webgl ? 'OK' : 'indisponible') + '.</p>';
-            } else {
-              landmarksInfo.innerHTML = '<p>Erreur analyse: ' + msg + ' | Fallback TFJS: ' + fbMsg + '</p>';
-            }
-          }
-        }
-      }
-    }
-
-    function drawFaceLandmarks(ctx, landmarks, imgWidth, imgHeight) {
-      if (!landmarks || landmarks.length === 0) return;
-      
-      // MediaPipe face landmarks sont déjà en coordonnées normalisées [0,1]
-      // On les convertit en pixels
-      
-      ctx.strokeStyle = 'red';
-      ctx.lineWidth = 2;
-      
-      // Dessiner les connexions faciales
-      // Les connexions MediaPipe face sont définies dans mp.faceConnections
-      if (window.FACEMESH_TESSELATION || window.mp?.faceConnections) {
-        const connections = (window.FACEMESH_TESSELATION || window.mp?.faceConnections?.FACEMESH_TESSELATION || []);
-        
-        for (let i = 0; i < connections.length; i++) {
-          const connection = connections[i];
-          let startIdx = connection[0];
-          let endIdx = connection[1];
-          
-          let startLandmark = landmarks[startIdx];
-          let endLandmark = landmarks[endIdx];
-          
-          if (startLandmark && endLandmark) {
-            const startX = startLandmark.x * imgWidth;
-            const startY = startLandmark.y * imgHeight;
-            const endX = endLandmark.x * imgWidth;
-            const endY = endLandmark.y * imgHeight;
-            
-            ctx.beginPath();
-            ctx.moveTo(startX, startY);
-            ctx.lineTo(endX, endY);
-            ctx.stroke();
-          }
-        }
-      } else {
-        // Sinon dessiner les points individuels
-        landmarks.forEach((landmark, idx) => {
-          const x = landmark.x * imgWidth;
-          const y = landmark.y * imgHeight;
-          
-          ctx.beginPath();
-          ctx.arc(x, y, 2, 0, Math.PI * 2);
-          ctx.fillStyle = 'red';
-          ctx.fill();
-        });
-      }
-    }
-    
-    // tentative webcam (optionnel - nécessite permissions)
-    const webcamBtn = document.getElementById('webcamBtn');
-    webcamBtn.addEventListener('click', () => {
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
-          // Créer un élément vidéo
-          video = document.createElement('video');
-          video.srcObject = stream;
-          video.play();
-          
-          // Bouton pour arrêter
-          const stopBtn = document.createElement('button');
-          stopBtn.textContent = 'Arrêter la webcam';
-          stopBtn.onclick = () => {
-            stream.getTracks().forEach(track => track.stop());
-            video.remove();
-            document.body.removeChild(stopBtn);
-          };
-          document.body.appendChild(stopBtn);
-        })
-        .catch(err => {
-          alert('Impossible d\'accéder à la webcam: ' + err.message);
-          console.error(err);
-        });
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => processImage(img, file.name);
+        img.onerror = () => alert('Erreur lecture image');
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
     });
-    
-    // Démarrage
-    // D?marrage: g?r? par checkMpAvailability
-  </script>
+
+    dropZone.addEventListener('click', (e) => { if (e.target.closest('#fileInput')) return; fileInput.click(); });
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files?.[0];
+      if (file) { fileInput.files = e.dataTransfer.files; fileInput.dispatchEvent(new Event('change')); }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      document.getElementById('resultsSection').style.display = 'none';
+      if (resultCanvas) resultCanvas.style.display = 'none';
+      if (landmarksInfoEl) landmarksInfoEl.innerHTML = '<p>Déplacez l\'image pour voir les repères</p>';
+      setLandmarksData(null);
+      fileInput.value = '';
+    });
+    copyBtn.addEventListener('click', copyJson);
+    dlBtn.addEventListener('click', downloadJson);
+  });
+</script>
 </body>
 </html>
