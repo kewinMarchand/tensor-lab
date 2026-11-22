@@ -256,6 +256,57 @@
       });
     }
 
+    let tfjsDetector = null;
+    let tfjsLoading = null;
+    async function ensureTfjsDetector() {
+      if (tfjsDetector) return tfjsDetector;
+      if (tfjsLoading) return tfjsLoading;
+      tfjsLoading = (async () => {
+        const scripts = [
+          'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.22.0/dist/tf-core.min.js',
+          'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.22.0/dist/tf-converter.min.js',
+          'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.22.0/dist/tf-backend-webgl.min.js',
+          'https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.6/dist/face-landmarks-detection.min.js',
+        ];
+        for (const src of scripts) {
+          if (src.includes('tf-core') && window.tf?.engine) continue;
+          if (src.includes('face-landmarks-detection') && window.faceLandmarksDetection) continue;
+          await loadScript(src);
+        }
+        if (!window.tf || !window.faceLandmarksDetection) throw new Error('TFJS non disponible');
+        await window.tf.ready();
+        try { await window.tf.setBackend('webgl'); } catch (_) {}
+        tfjsDetector = await window.faceLandmarksDetection.createDetector(
+          window.faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
+          { runtime: 'tfjs', maxFaces: 1, refineLandmarks: true }
+        );
+        return tfjsDetector;
+      })().catch((e) => { tfjsLoading = null; throw e; });
+      return tfjsLoading;
+    }
+
+    async function runTfjsFallback(imgElement, canvas, drawCtx, landmarksInfo) {
+      if (landmarksInfo) landmarksInfo.innerHTML = '<p>Fallback TFJS en cours...</p>';
+      const detector = await ensureTfjsDetector();
+      const faces = await detector.estimateFaces(imgElement, { flipHorizontal: false });
+      const face = faces?.[0];
+      const kps = face?.keypoints || [];
+      const w = imgElement.naturalWidth || imgElement.width || canvas.width;
+      const h = imgElement.naturalHeight || imgElement.height || canvas.height;
+      const landmarks = kps.map(kp => ({ x: (kp.x || 0) / w, y: (kp.y || 0) / h }));
+      setScan(false);
+      drawCtx.clearRect(0, 0, canvas.width, canvas.height);
+      drawCtx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
+      if (landmarks.length) {
+        drawFaceLandmarks(drawCtx, landmarks, canvas.width, canvas.height);
+        if (landmarksInfo) landmarksInfo.innerHTML = '<p>Visage détecté (fallback TFJS) - ' + landmarks.length + ' points repère</p>';
+        fadeOutImage(canvas, drawCtx, imgElement, landmarks);
+      } else {
+        if (landmarksInfo) landmarksInfo.innerHTML = '<p>Aucun visage détecté (fallback TFJS)</p>';
+        fadeOutImage(canvas, drawCtx, imgElement, null);
+      }
+    }
+
     async function processImageWithMediaPipe(imgElement) {
       const canvas = resultCanvas || document.getElementById('resultCanvas');
       const landmarksInfo = landmarksInfoEl || document.getElementById('landmarksInfo');
@@ -322,15 +373,23 @@
         }
 
       } catch (err) {
-        setScan(false);
-        console.error('Erreur MediaPipe:', err);
-        const msg = String(err?.message || err);
-        if (landmarksInfo) {
-          if (msg.includes('Timeout MediaPipe')) {
-            const webgl = !!document.createElement('canvas').getContext('webgl2');
-            landmarksInfo.innerHTML = '<p>Erreur analyse: MediaPipe ne répond pas (timeout). WebGL2: ' + (webgl ? 'OK' : 'indisponible') + '. Essayez de recharger, désactiver l’accélération matérielle, ou tester un autre navigateur.</p>';
-          } else {
-            landmarksInfo.innerHTML = '<p>Erreur analyse: ' + msg + '</p>';
+        console.warn('MediaPipe échec, tentative fallback TFJS:', err?.message || err);
+        try {
+          await runTfjsFallback(imgElement, canvas, drawCtx, landmarksInfo);
+          return;
+        } catch (fallbackErr) {
+          setScan(false);
+          console.error('Erreur MediaPipe:', err);
+          console.error('Erreur fallback TFJS:', fallbackErr);
+          const msg = String(err?.message || err);
+          const fbMsg = String(fallbackErr?.message || fallbackErr);
+          if (landmarksInfo) {
+            if (msg.includes('Timeout MediaPipe')) {
+              const webgl = !!document.createElement('canvas').getContext('webgl2');
+              landmarksInfo.innerHTML = '<p>Erreur analyse: MediaPipe timeout; fallback TFJS échoué (' + fbMsg + '). WebGL2: ' + (webgl ? 'OK' : 'indisponible') + '.</p>';
+            } else {
+              landmarksInfo.innerHTML = '<p>Erreur analyse: ' + msg + ' | Fallback TFJS: ' + fbMsg + '</p>';
+            }
           }
         }
       }
