@@ -231,7 +231,7 @@
       const faces = await det.estimateFaces(imgElement, { flipHorizontal: false });
       const face = faces?.[0];
       const kps = face?.keypoints || [];
-      const landmarks = kps.map(kp => ({ x: (kp.x || 0) / srcW, y: (kp.y || 0) / srcH, z: kp.z ?? null, name: kp.name || null }));
+      const landmarks = kps.map(kp => ({ x: (kp.x || 0) / srcW, y: (kp.y || 0) / srcH, z: kp.z != null ? kp.z / srcW : 0, name: kp.name || null }));
       const payload = {
         file: fileName,
         width: srcW,
@@ -324,6 +324,7 @@
   }
 
   async function open3DViewer() {
+    try {
     const payload = lastLandmarksPayload || window.lastLandmarksPayload;
     if (!payload?.landmarks?.length) { alert('Aucune donnée de landmarks. Lancez une détection d\'abord.'); return; }
     const container = document.getElementById('viewer3d');
@@ -358,7 +359,7 @@
     });
 
     const geom = new THREE.BufferGeometry().setFromPoints(pts);
-    const points = new THREE.Points(geom, new THREE.PointsMaterial({ color: 0x66d9a3, size: 2.2, sizeAttenuation: true }));
+    const points = new THREE.Points(geom, new THREE.PointsMaterial({ color: 0x66d9a3, size: 3.5, sizeAttenuation: true }));
     const group = new THREE.Group();
     group.add(points);
     scene.add(group);
@@ -397,6 +398,11 @@
     }
     threeState = { renderer, scene, camera, group, container, frame: null };
     animate();
+    } catch (e) {
+      console.error('Erreur vue 3D:', e);
+      const container = document.getElementById('viewer3d');
+      if (container) container.innerHTML = '<p style="color:#f66;padding:12px">Erreur 3D: ' + String(e?.message || e) + '</p>';
+    }
   }
 
   window.open3DViewer = open3DViewer;
