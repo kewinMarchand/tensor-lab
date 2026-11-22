@@ -73,6 +73,13 @@
         <summary class="small muted" style="cursor:pointer;">Données landmarks (JSON)</summary>
         <pre id="landmarksData" class="mono" style="margin-top:8px; max-height:260px; overflow:auto; white-space:pre-wrap; background:#111; padding:10px; border-radius:8px; border:1px solid #333;"></pre>
       </details>
+      <div style="margin-top:12px;">
+        <div class="row" style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+          <button class="btn-action" id="open3dBtn" type="button">Ouvrir vue 3D</button>
+          <span class="small muted">Glisser pour tourner · molette pour zoomer</span>
+        </div>
+        <div id="viewer3d" style="display:none; height:420px; border:1px solid #333; border-radius:8px; background:#0b1117; position:relative;"></div>
+      </div>
     </section>
   </div>
 
@@ -191,6 +198,7 @@
 
   function setLandmarksData(payload) {
     lastLandmarksPayload = payload;
+    window.lastLandmarksPayload = payload;
     const el = document.getElementById('landmarksData');
     if (el) el.textContent = payload ? JSON.stringify(payload, null, 2) : '';
   }
@@ -300,6 +308,105 @@
     catch (_) { window.prompt('Copiez le JSON:', txt); }
   }
 
+  let threeState = null;
+  async function ensureThree() {
+    if (window.THREE) return window.THREE;
+    await loadScript('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js');
+    return window.THREE;
+  }
+
+  function disposeThree() {
+    if (!threeState) return;
+    if (threeState.frame) cancelAnimationFrame(threeState.frame);
+    threeState.renderer?.dispose?.();
+    threeState.container.innerHTML = '';
+    threeState = null;
+  }
+
+  async function open3DViewer() {
+    const payload = lastLandmarksPayload || window.lastLandmarksPayload;
+    if (!payload?.landmarks?.length) { alert('Aucune donnée de landmarks. Lancez une détection d\'abord.'); return; }
+    const container = document.getElementById('viewer3d');
+    container.style.display = 'block';
+    const THREE = await ensureThree();
+    disposeThree();
+    container.innerHTML = '';
+
+    const w = container.clientWidth || 600;
+    const h = container.clientHeight || 420;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1117);
+    const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
+    camera.position.set(0, 0, 800);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    container.appendChild(renderer.domElement);
+
+    const amb = new THREE.AmbientLight(0xffffff, 0.9); scene.add(amb);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(200, 300, 400); scene.add(dir);
+
+    const { landmarks, triangulation, width, height } = payload;
+    const pts = landmarks.map(p => new THREE.Vector3(
+      (p.x || 0) * (width || 1) - (width || 1) / 2,
+      ((1 - (p.y || 0)) * (height || 1)) - (height || 1) / 2,
+      (p.z || 0) * (width || 1)
+    ));
+
+    const geom = new THREE.BufferGeometry().setFromPoints(pts);
+    const pos = geom.attributes.position.array;
+    const tris = Array.isArray(triangulation) ? triangulation : [];
+    const indices = [];
+    if (tris.length && Array.isArray(tris[0])) for (const t of tris) indices.push(t[0], t[1], t[2]);
+    else for (let i = 0; i + 2 < tris.length; i += 3) indices.push(tris[i], tris[i+1], tris[i+2]);
+    if (indices.length) geom.setIndex(indices);
+    geom.computeVertexNormals();
+
+    const mesh = new THREE.Mesh(geom, new THREE.MeshPhongMaterial({ color: 0xc4a46a, wireframe: false, side: THREE.DoubleSide, flatShading: false, transparent: true, opacity: 0.85 }));
+    const wire = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: 0x8fae8b, wireframe: true, transparent: true, opacity: 0.35 }));
+    const points = new THREE.Points(geom, new THREE.PointsMaterial({ color: 0xff6b6b, size: 2.5, sizeAttenuation: true }));
+    const group = new THREE.Group();
+    group.add(mesh); group.add(wire); group.add(points);
+    scene.add(group);
+
+    // fit camera
+    geom.computeBoundingSphere();
+    const bs = geom.boundingSphere;
+    if (bs) {
+      const dist = bs.radius / Math.tan((camera.fov * Math.PI / 180) / 2) * 1.6;
+      camera.position.set(0, 0, Math.max(200, dist));
+      camera.lookAt(0, 0, 0);
+    }
+
+    let dragging = false, lastX = 0, lastY = 0, rotX = 0, rotY = 0;
+    renderer.domElement.style.cursor = 'grab';
+    renderer.domElement.addEventListener('mousedown', (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; renderer.domElement.style.cursor = 'grabbing'; });
+    window.addEventListener('mouseup', () => { dragging = false; if (renderer.domElement) renderer.domElement.style.cursor = 'grab'; });
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      rotY += (e.clientX - lastX) * 0.005;
+      rotX += (e.clientY - lastY) * 0.005;
+      rotX = Math.max(-1.5, Math.min(1.5, rotX));
+      lastX = e.clientX; lastY = e.clientY;
+    });
+    renderer.domElement.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      camera.position.z = Math.max(100, Math.min(3000, camera.position.z + e.deltaY * 0.5));
+    }, { passive: false });
+
+    function animate() {
+      if (!threeState) return;
+      group.rotation.x = rotX;
+      group.rotation.y = rotY;
+      renderer.render(scene, camera);
+      threeState.frame = requestAnimationFrame(animate);
+    }
+    threeState = { renderer, scene, camera, group, container, frame: null };
+    animate();
+  }
+
+  window.open3DViewer = open3DViewer;
+
   document.addEventListener('DOMContentLoaded', async () => {
     resultCanvas = document.getElementById('resultCanvas');
     landmarksInfoEl = document.getElementById('landmarksInfo');
@@ -309,20 +416,7 @@
     const copyBtn = document.getElementById('copyJsonBtn');
     const dlBtn = document.getElementById('downloadJsonBtn');
     const objBtn = document.getElementById('downloadObjBtn');
-
-    try {
-      setStatus('Chargement du modèle TFJS...');
-      await ensureDetector();
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('ready').style.display = 'block';
-      document.getElementById('ready').innerHTML = '<p>Prêt — sélectionnez une image.</p>';
-      document.getElementById('dropZone').style.display = 'block';
-    } catch (e) {
-      console.error(e);
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('error').style.display = 'block';
-      document.getElementById('error').innerHTML = 'Erreur chargement TFJS: ' + String(e?.message || e);
-    }
+    const open3dBtn = document.getElementById('open3dBtn');
 
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files?.[0];
@@ -356,6 +450,21 @@
     copyBtn.addEventListener('click', copyJson);
     dlBtn.addEventListener('click', downloadJson);
     objBtn.addEventListener('click', downloadObj);
+    open3dBtn.addEventListener('click', open3DViewer);
+
+    try {
+      setStatus('Chargement du modèle TFJS...');
+      await ensureDetector();
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('ready').style.display = 'block';
+      document.getElementById('ready').innerHTML = '<p>Prêt — sélectionnez une image.</p>';
+      document.getElementById('dropZone').style.display = 'block';
+    } catch (e) {
+      console.error(e);
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('error').innerHTML = 'Erreur chargement TFJS: ' + String(e?.message || e);
+    }
   });
 </script>
 </body>
